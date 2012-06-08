@@ -1,13 +1,15 @@
-# xweb框架 ORM模块
+= xweb框架 ORM模块
+lifei <lifei@7v1.net>
+v1.0 2012-06-08
 
-Object Raletion Mapping
+== 使用说明
 
-## 使用说明
+=== 配置文件
 
-### 配置文件
 
+[NOTE]
 代码
-----
+....
 db = {
 
     'default': {
@@ -52,4 +54,4 @@ for user in users:
     print user.city.name
 
 UnitOfWork.inst().commit()
-----
+....
