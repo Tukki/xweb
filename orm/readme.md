@@ -9,32 +9,26 @@ v1.0 2012-06-08
 ### 配置文件
 
 * 代码: settings.py
-
-    db = {
-    
-        'default': {
-            'host': '127.0.0.1',
-            'user': 'root',
-              'db': 'xweb',
-         'charset': 'utf-8'
-        },
-        
-        'userdb':  {
-            'host': '127.0.0.1',
-            'user': 'root',
-              'db': 'userdb',
-         'charset': 'utf-8'
-        },
-    
-    }
-    
-    cache = {
-    
-        'default: {
-            'host': '127.0.0.1',
-            'port': 12580
+        db = {
+            'default': {
+                'host': '127.0.0.1',
+                'user': 'root',
+                  'db': 'xweb',
+             'charset': 'utf-8'
+            },
+            'userdb':  {
+                'host': '127.0.0.1',
+                'user': 'root',
+                  'db': 'userdb',
+             'charset': 'utf-8'
+            },
         }
-    }
+        cache = {
+            'default: {
+                'host': '127.0.0.1',
+                'port': 12580
+            }
+        }
     
 * 代码：console.py
     
