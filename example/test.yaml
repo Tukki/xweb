@@ -1,0 +1,6 @@
+db:
+  default:
+    driver:mysql
+    user:root
+    password:''
+    url:'mysql://'
