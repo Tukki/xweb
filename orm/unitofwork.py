@@ -73,20 +73,18 @@ class UnitOfWork:
                 for entity in entitys:
                     self.sync(entity)
                     
-            
             for name in connections:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
                     connection.connect().commit()
                     
-            self.entity_list.clear()
         except:
             for name in connections:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
-                    connection.rollback()
-            
-                    
+                    connection.connect().rollback()
+        finally:
+            self.entity_list.clear()
                     
         
     def load(self, cls, id): #@ReservedAssignment
