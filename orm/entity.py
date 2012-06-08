@@ -1,10 +1,19 @@
 #coding:utf8
-'''
-Created on 2012-6-3
 
-@author: lifei
-'''
 class Entity(object):
+    '''
+    领域实体基类
+    
+    _version: 实体版本
+    _belongs_to: BelongsTo的定义
+    _default_values: 字段的默认值
+    _primary_key: 主键名称
+    _keys: 字段列表
+    _types: 字段类型（暂未使用)
+    
+    @author: lifei
+    @since: v1.0
+    '''
     
     _version = 1
     _belongs_to = {}
@@ -76,6 +85,21 @@ class Entity(object):
         
     #==== class method ====
     
+    
+    @classmethod
+    def createByBiz(cls, **kwargs):
+        from orm.unitofwork import UnitOfWork
+        primaryKey = cls.primaryKey()
+        unitofwork = UnitOfWork.inst()
+        
+        if not kwargs.has_key(primaryKey):
+            kwargs[primaryKey] = unitofwork.idgenerator.get()
+            
+        entity = cls(**kwargs)
+        unitofwork.register(entity)
+        return entity
+        
+    
     @classmethod
     def connection(cls, **kwargs):
         '''
@@ -122,4 +146,8 @@ class Entity(object):
     def get(cls, id):
         from orm.unitofwork import UnitOfWork
         return UnitOfWork.inst().get(cls, id)
-        
+    
+    @classmethod
+    def getMulti(cls, condition, args=[]):
+        from orm.unitofwork import UnitOfWork
+        return UnitOfWork.inst().getMulti(cls, condition, args)

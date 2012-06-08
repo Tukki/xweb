@@ -118,6 +118,9 @@ class MySQLDBConnection(DBConnection):
         self._conn = MySQLdb.connect(**kwargs)
         self._conn.autocommit(True)
         
+    def connect(self):
+        return self._conn;
+        
     def entity(self, cls, **kwargs):
         entity = cls(**kwargs)
         entity._is_new = False

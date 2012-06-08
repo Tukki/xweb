@@ -9,6 +9,7 @@ import threading
 from config import XConfig
 from orm.cache import CacheManager
 from db import ConnectionManager
+from orm.idgenerator import IdGenerator
 
 
 class EntityStatusError(Exception):
@@ -17,6 +18,7 @@ class EntityStatusError(Exception):
 class UnitOfWork:
     '''
     工作单元
+    由于数据库连接线程安全的限制，工作单元只提供thread local的访问实例，不提供进程级实例
     '''
     
     def __init__(self):
@@ -24,6 +26,9 @@ class UnitOfWork:
         self.cache_manager = CacheManager(XConfig.config.get('cache'))
         self.entity_list = {}
         self.disable_cache = False
+        
+        connection = self.connection_manager.get(XConfig.get('idgenerator', {}).get('connection'))
+        self.idgenerator = IdGenerator(connection, XConfig.get('idgenerator', {}).get('count') or 5)
     
     def register(self, entity):
         
@@ -33,6 +38,56 @@ class UnitOfWork:
             self.entity_list[cls_name] = {}
             
         self.entity_list[cls_name][entity.id] = entity
+        
+    def commit(self):
+        
+        deletes = []
+        updates = []
+        news = []
+        connections = set()
+        
+        for entity_class_name in self.entity_list:
+            entity_dict = self.entity_list.get(entity_class_name)
+            
+            for id in entity_dict:
+                entity = entity_dict.get(id)
+                
+                if entity.isDelete():
+                    deletes.append(entity)
+                elif entity.isNew():
+                    news.append(entity)
+                elif entity.isDirty():
+                    updates.append(entity)
+                else:
+                    continue
+                    
+                connections.add(entity._connection)
+                
+        for name in connections:
+            connection = self.connection_manager.get(name)
+            if name == connection.name:
+                connection.connect().begin()
+                
+        try:
+            for entitys in [deletes, updates, news]:
+                for entity in entitys:
+                    self.sync(entity)
+                    
+            
+            for name in connections:
+                connection = self.connection_manager.get(name)
+                if name == connection.name:
+                    connection.connect().commit()
+                    
+            self.entity_list.clear()
+        except:
+            for name in connections:
+                connection = self.connection_manager.get(name)
+                if name == connection.name:
+                    connection.rollback()
+            
+                    
+                    
         
     def load(self, cls, id): #@ReservedAssignment
         cls_name = cls.__name__
@@ -107,12 +162,30 @@ class UnitOfWork:
     
     def sync(self, entity):
         connection = self.connection_manager.get(entity._connection)
+        cache = self.cache_manager.get(entity._cache)
+        cache_key = self.makeKey(entity.__class__, entity.id)
+        
         if entity.isNew():
-            return connection.insert(entity)
+            if connection.insert(entity):
+                entity._is_dirty = False
+                entity._is_new = False
+                entity.is_delete = False
+                cache.set(cache_key, entity)
+                return  True
         elif entity.isDelete():
-            return connection.delete(entity)
+            if connection.delete(entity):
+                entity._is_dirty = False
+                entity._is_new = False
+                entity.is_delete = True
+                cache.set(cache_key, entity)
+                return  True
         elif entity.isDirty():
-            return connection.update(entity)
+            if connection.update(entity):
+                entity._is_dirty = False
+                entity._is_new = False
+                entity.is_delete = False
+                cache.set(cache_key, entity)
+                return True
 
         raise EntityStatusError()
         

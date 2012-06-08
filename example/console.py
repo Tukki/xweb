@@ -23,14 +23,26 @@ config = {
     },
     'cache': {
         'default':'127.0.0.1:2000'
+    },
+          
+    'idgenerator': {
+        'count': 5
     }
+    
 }
 
 XConfig.load(config)
 
 unitofwork = UnitOfWork.inst()
 
-user = unitofwork.get(User, 1)
+user = User.get(1)
+
+users = User.getMulti('name is not null')
+
+i = 5
+for user in users:
+    print user.name
+    user.name = i*i
 
 user.address.name = 10
 
@@ -42,4 +54,8 @@ user2 = User(id=3, name="xxx", passwd="www", create_time=datetime.datetime(2011,
 
 #unitofwork.sync(user2)
 
-print unitofwork.getMulti(User, '')
+user = User.createByBiz(name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
+
+user.name = 'bbbb'
+
+unitofwork.commit()

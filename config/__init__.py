@@ -8,7 +8,7 @@ class XConfig:
         cls.config.update(conf)
     
     @classmethod
-    def get(cls, key):
-        return cls.config.get(key)
+    def get(cls, key, value=None):
+        return cls.config.get(key, value)
     
     
