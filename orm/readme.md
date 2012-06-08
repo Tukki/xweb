@@ -30,6 +30,19 @@ v1.0 2012-06-08
                 'port': 12580
             }
         }
+        
+        
+* 代码：domain.py
+
+        class User(Entity):
+        
+            _keys = ['name', 'city_id']
+            _belongs_to = {'city': ('city_id', City)}
+            
+            
+        class City(Entity):
+            
+            _keys = ['name']
     
 * 代码：console.py
     
