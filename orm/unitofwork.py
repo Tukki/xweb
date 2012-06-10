@@ -26,6 +26,7 @@ class UnitOfWork:
         self.cache_manager = CacheManager(XConfig.config.get('cache'))
         self.entity_list = {}
         self.disable_cache = False
+        self.disable_preload = False
         
         connection = self.connection_manager.get(XConfig.get('idgenerator', {}).get('connection'))
         self.idgenerator = IdGenerator(connection, XConfig.get('idgenerator', {}).get('count') or 5)
@@ -94,12 +95,10 @@ class UnitOfWork:
         
         return self.entity_list.get(cls_name).get(id)
     
-    def getMulti(self, cls, condition=None, args=[], **kwargs):
+    def getMulti(self, cls, ids, **kwargs):
         
         db_conn = cls.connection(**kwargs)
         connection = self.connection_manager.get(db_conn)
-        ids = connection.queryIds(cls, condition, args)
-        
         query_db_ids = []
         if not self.disable_cache:
             not_found_ids = []
@@ -125,11 +124,27 @@ class UnitOfWork:
             query_db_ids = ids
         
         entitys = connection.queryAll(cls, query_db_ids)
+
+        if not entitys:
+            return []
         
+        first_entity = entitys[0]
+        first_entity.setProps('list_ids', ids)
+        first_entity.setProps('list_first', first_entity.id)
         for entity in entitys:
             self.register(entity)
+            entity.setProps('list_first', first_entity.id)
             
         return [self.load(cls, id) for id in ids]
+    
+    def getMultiByCond(self, cls, condition=None, args=[], **kwargs):
+        
+        db_conn = cls.connection(**kwargs)
+        connection = self.connection_manager.get(db_conn)
+        ids = connection.queryIds(cls, condition, args)
+        
+        return self.getMulti(cls, ids, **kwargs)
+    
     
     def get(self, cls, id, **kwargs): #@ReservedAssignment
         
@@ -157,6 +172,49 @@ class UnitOfWork:
         cache.set(key, entity)
         
         return entity
+    
+    def getForeignEntity(self, entity, key):
+        
+        fkey, fcls, fid = entity.getForeignKey(key)
+        
+        if not fid:
+            return None
+        
+        if self.disable_preload:
+            return self.get(fcls, fid)
+        
+        first_id = entity.getProps('list_first', None)
+        if  not first_id:
+            return self.get(fcls, fid)
+
+        model = self.load(cls, fid)
+        
+        if model:
+            return model
+        
+        if first_id == fid:
+            list_ids = entity.getProps('list_ids', [])
+        else:
+            model = self.load(cls, first_id)
+            if not model:
+                return self.get(cls, fid)
+            
+            list_ids = model.getPrpos('list_ids', [])
+        
+        fids = set()
+        for list_id in list_ids:
+            model = self.load(cls, list_id)
+            if not model:
+                continue
+            fid = getattr(model, fkey)
+            fids.add(fid)
+            
+        if fids:
+            self.getMulti(cls, fids)
+            return self.load(cls, id)
+        
+        return self.get(cls, id)
+        
     
     def sync(self, entity):
         connection = self.connection_manager.get(entity._connection)
@@ -187,9 +245,6 @@ class UnitOfWork:
 
         raise EntityStatusError()
         
-    def get_multi(self, cls, ids):
-        pass
-    
     def makeKey(self, cls, id):
         return "%s:%s:%s:%s"%(XConfig.config.get('app_name'),
                               cls.__name__, id, cls._version)

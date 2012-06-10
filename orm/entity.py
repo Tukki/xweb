@@ -1,4 +1,5 @@
 #coding:utf8
+from orm.unitofwork import UnitOfWork
 
 class Entity(object):
     '''
@@ -30,6 +31,8 @@ class Entity(object):
         self._connection = 'default'
         self._cache = 'default'
         self._dirty_keys = set()
+        self._props = {}
+        self._unitofwork = UnitOfWork.inst()
         self.load(**kwargs)
         
     def remove(self):
@@ -46,15 +49,12 @@ class Entity(object):
         
     def __getattr__(self, key):
         
-        cls = self.__class__
-        _belongs_to = cls._belongs_to
+        entity = self._unitofwork.getForeignEntity(self, key)
         
-        if _belongs_to.has_key(key):
-            (fkey, fcls) = _belongs_to.get(key)
-            from orm.unitofwork import UnitOfWork
-            unitofwork = UnitOfWork.inst()
-            fid = super(Entity, self).__getattribute__(fkey)
-            return unitofwork.get(fcls, fid)
+        if entity:
+            return entity
+        
+        cls = self.__class__
         
         if hasattr(self, key):
             return super(Entity, self).__getattribute__(key)
@@ -70,6 +70,21 @@ class Entity(object):
             self._dirty_keys.add(name)
             
             
+    def getForeignKey(self, foreign_key):
+        
+        cls = self.__class__
+        _belongs_to = cls._belongs_to
+        
+        if _belongs_to.has_key(foreign_key):
+            (fkey, fcls) = _belongs_to.get(foreign_key)
+            fid =  super(Entity, self).__getattribute__(fkey)
+            
+            return fkey, fcls, fid
+        
+        return None, None, None
+        
+            
+            
     def isNew(self):
         return self._is_new
     
@@ -81,6 +96,18 @@ class Entity(object):
     
     def dirtyKeys(self):
         return self._dirty_keys
+    
+    def setProps(self, k, v):
+        self._props[k] = v
+        
+    def getProps(self, k, v=None):
+        return self._props.get(k, v)
+    
+    def __getOtherEntitys(self):
+        pass
+        
+        
+            
         
         
     #==== class method ====
