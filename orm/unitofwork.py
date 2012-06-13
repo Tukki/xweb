@@ -226,6 +226,7 @@ class UnitOfWork:
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = False
+                entity.onNew()
                 cache.set(cache_key, entity)
                 return  True
         elif entity.isDelete():
@@ -233,7 +234,8 @@ class UnitOfWork:
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = True
-                cache.set(cache_key, entity)
+                cache.delete(cache_key)
+                entity.onDelete()
                 return  True
         elif entity.isDirty():
             if connection.update(entity):
@@ -241,6 +243,7 @@ class UnitOfWork:
                 entity._is_new = False
                 entity.is_delete = False
                 cache.set(cache_key, entity)
+                entity.onUpdate()
                 return True
 
         raise EntityStatusError()

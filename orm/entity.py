@@ -1,5 +1,4 @@
 #coding:utf8
-from orm.unitofwork import UnitOfWork
 
 class Entity(object):
     '''
@@ -10,7 +9,7 @@ class Entity(object):
     _default_values: 字段的默认值
     _primary_key: 主键名称
     _keys: 字段列表
-    _types: 字段类型（暂未使用)
+    _types: 字段类型 如: {'name':long}
     
     @author: lifei
     @since: v1.0
@@ -24,6 +23,7 @@ class Entity(object):
     _types = {}
     
     def __init__(self, **kwargs):
+        from orm.unitofwork import UnitOfWork
         self._is_new = True
         self._is_delete = False
         self._is_dirty = False
@@ -42,10 +42,17 @@ class Entity(object):
     def load(self, **kwargs):
         cls = self.__class__
         for k in cls.allKeys():
+            value = None
             if kwargs.has_key(k):
-                self.__dict__[k] = kwargs.get(k)
+                value = kwargs.get(k)
             elif self._default_values.has_key(k):
-                self.__dict__[k] = self._default_values.get(k)
+                value = self._default_values.get(k)
+            
+            if cls._types.has_key(k):
+                _format = cls._types.get(k)
+                self.__dict__[k] = _format(value)
+            else:
+                self.__dict__[k] = value
         
     def __getattr__(self, key):
         
@@ -63,11 +70,17 @@ class Entity(object):
         
         return None
     
-    def __setattr__(self, name, value):
-        self.__dict__[name] = value
-        if name in self.__class__._keys:
+    def __setattr__(self, k, value):
+        cls = self.__class__
+        if cls._types.has_key(k):
+            _format = cls._types.get(k)
+            self.__dict__[k] = _format(value)
+        else:
+            self.__dict__[k] = value
+            
+        if k in cls._keys:
             self._is_dirty = True
-            self._dirty_keys.add(name)
+            self._dirty_keys.add(k)
             
             
     def getForeignKey(self, foreign_key):
@@ -104,6 +117,15 @@ class Entity(object):
         return self._props.get(k, v)
     
     def __getOtherEntitys(self):
+        pass
+    
+    def onNew(self):
+        pass
+    
+    def onDelete(self):
+        pass
+    
+    def onUpdate(self):
         pass
         
         
