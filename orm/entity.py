@@ -23,16 +23,15 @@ class Entity(object):
     _types = {}
     
     def __init__(self, **kwargs):
-        from orm.unitofwork import UnitOfWork
         self._is_new = True
         self._is_delete = False
         self._is_dirty = False
         self._load_from_cache = False
-        self._connection = 'default'
+        self._db = 'default'
         self._cache = 'default'
         self._dirty_keys = set()
         self._props = {}
-        self._unitofwork = UnitOfWork.inst()
+        self._unitofwork = None
         self.load(**kwargs)
         
     def remove(self):
@@ -54,9 +53,17 @@ class Entity(object):
             else:
                 self.__dict__[k] = value
         
+    # protected methods       
+    def _getUnitOfWork(self):
+        if not self._unitofwork:
+            from orm.unitofwork import UnitOfWork
+            self._unitofwork = UnitOfWork.inst()
+        return self._unitofwork
+        
+    # override methods
     def __getattr__(self, key):
         
-        entity = self._unitofwork.getForeignEntity(self, key)
+        entity = self._getUnitOfWork().getBelongsToEntity(self, key)
         
         if entity:
             return entity
@@ -82,8 +89,18 @@ class Entity(object):
             self._is_dirty = True
             self._dirty_keys.add(k)
             
+    def __str__(self):
+        return "%s(%s)"%(self.modelName(), self.getPrimaryKey())
             
-    def getForeignKey(self, foreign_key):
+    def getPrimaryKey(self):
+        primary_key = self.primaryKey()
+        
+        if not hasattr(self, primary_key):
+            raise Exception("primary key of %s is not set"%self.modelName())
+        
+        return getattr(self, primary_key)
+            
+    def getBelongsToInfo(self, foreign_key):
         
         cls = self.__class__
         _belongs_to = cls._belongs_to
@@ -107,6 +124,9 @@ class Entity(object):
     def isDelete(self):
         return self._is_delete
     
+    def isLoadedFromCache(self):
+        return self._load_from_cache
+    
     def dirtyKeys(self):
         return self._dirty_keys
     
@@ -115,9 +135,6 @@ class Entity(object):
         
     def getProps(self, k, v=None):
         return self._props.get(k, v)
-    
-    def __getOtherEntitys(self):
-        pass
     
     def onNew(self):
         pass
@@ -137,12 +154,14 @@ class Entity(object):
     
     @classmethod
     def createByBiz(cls, **kwargs):
-        from orm.unitofwork import UnitOfWork
-        primaryKey = cls.primaryKey()
-        unitofwork = UnitOfWork.inst()
         
-        if not kwargs.has_key(primaryKey):
-            kwargs[primaryKey] = unitofwork.idgenerator.get()
+        if not kwargs.get('use_autoincrement_id'):
+            from orm.unitofwork import UnitOfWork
+            primaryKey = cls.primaryKey()
+            unitofwork = UnitOfWork.inst()
+            
+            if not kwargs.has_key(primaryKey):
+                kwargs[primaryKey] = unitofwork.idgenerator.get()
             
         entity = cls(**kwargs)
         unitofwork.register(entity)
@@ -150,17 +169,17 @@ class Entity(object):
         
     
     @classmethod
-    def connection(cls, **kwargs):
+    def dbName(cls, **kwargs):
         '''
-        计算需要的db链接
+        database链接标识
         @param cls: 实体类型
         '''
         return 'default'
     
     @classmethod
-    def cache(cls, **kwargs):
+    def cacheName(cls, **kwargs):
         '''
-        计算需要的db链接
+        cache链接标识
         @param cls: 实体类型
         '''
         return 'default'
@@ -171,6 +190,10 @@ class Entity(object):
             return cls._table_name
         else:
             return cls.__name__.lower()
+
+    @classmethod
+    def modelName(cls):
+        return cls.__name__
         
     @classmethod
     def primaryKey(cls):
@@ -188,15 +211,11 @@ class Entity(object):
         return cls._all_keys
     
     @classmethod
-    def where(cls):
-        pass
-    
-    @classmethod
     def get(cls, id):
         from orm.unitofwork import UnitOfWork
         return UnitOfWork.inst().get(cls, id)
     
     @classmethod
-    def getMulti(cls, condition, args=[]):
+    def getAll(cls, condition, args=[]):
         from orm.unitofwork import UnitOfWork
-        return UnitOfWork.inst().getMulti(cls, condition, args)
+        return UnitOfWork.inst().getAllByCond(cls, condition, args)

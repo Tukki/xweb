@@ -26,24 +26,27 @@ class XController:
         
     def echo(self, string):
         self.context['string'] += str(string)
+        
+    def json(self, obj):
+        self.context['json'] = obj
 
-    def as_json(self):
+    def asJSON(self):
         self.context['type'] = 'json'
 
-    def as_string(self):
+    def asString(self):
         self.context['type'] = 'string'
 
 
-def as_json(func):
-    def _as_json(self, *args, **kwargs):
-        self.as_json()
+def AsJSON(func):
+    def _AsJSON(self, *args, **kwargs):
+        self.asJSON()
 
         return func(self, *args, **kwargs)
-    return _as_json
+    return _AsJSON
 
-def as_string(func):
-    def _as_string(self, *args, **kwargs):
-        self.as_string()
+def AsString(func):
+    def _AsString(self, *args, **kwargs):
+        self.asString()
 
         return func(self, *args, **kwargs)
-    return _as_string
+    return _AsString

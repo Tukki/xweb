@@ -37,22 +37,20 @@ unitofwork = UnitOfWork.inst()
 
 user = User.get(1)
 
-users = User.getMulti('name is not null')
+users = User.getAll('name is not null')
 
 i = 5
 for user in users:
-    print user.name
     user.name = i*i
 
-user.address.name = 10
-
-unitofwork.sync(user.address)
+user.remove()
+#unitofwork.sync(user.address)
 
 print user.address.__dict__
 
 user2 = User(id=3, name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
 
-#unitofwork.sync(user2)
+unitofwork.register(user2)
 
 user = User.createByBiz(name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
 

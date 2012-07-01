@@ -7,53 +7,10 @@ Created on 2012-6-3
 
 import MySQLdb #@UnresolvedImport
 from orm.entity import Entity
+import logging
 
-class DBDefaultNotExists(Exception):
+class DefaultDBNotExists(Exception):
     pass
-
-class SQLBuilder:
-    
-    def __init__(self, cls):
-        self.cls = cls
-        self.condition = ''
-        self.last_key = ''
-        
-    def and_(self, key):
-        pass
-    
-    def or_(self, key):
-        pass
-        
-    def neq(self, key, value):
-        pass
-        
-    def eq(self, key, value):
-        pass
-    
-    def lt(self, key, value):
-        pass
-    
-    def lte(self, key, value):
-        pass
-    
-    def gt(self, key, value):
-        pass
-    
-    def gte(self, key, value):
-        pass
-    
-    def in_(self, key, value):
-        pass    
-    
-    def notIn(self, key, value):
-        pass    
-    
-    def is_(self, key, value):
-        pass    
-    
-    def isNot(self, key, value):
-        pass
-
 
 class DBConnection:
     '''
@@ -68,16 +25,26 @@ class DBConnection:
         if not driver:
             driver = 'mysql'
             
-            
-        self._connection = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",charset="utf8")  
+        self._db = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",charset="utf8")
+    
+    def _createEntity(self, cls, row):
+        kwargs = {}
+        for k, v in zip(cls.allKeys(), row):
+            kwargs[k] = v
+        entity = cls(**kwargs)
+        entity._is_new = False
+        entity._db = self.name
+        entity._load_from_cache = False
         
-    def query(self, cls, id):
+        return entity
+        
+    def queryOne(self, cls, id):
         return None      
       
     def queryIds(self, cls, condition, args):
         return None
     
-    def queryMany(self, cls, ids):
+    def queryAll(self, cls, ids):
         pass
     
     def insert(self, entity):
@@ -107,6 +74,9 @@ class DBConnection:
         return cls(conf, name)
     
 class MySQLDBConnection(DBConnection):
+    """
+    MySQL实现
+    """
     
     def __init__(self, name, conf):
         
@@ -121,14 +91,7 @@ class MySQLDBConnection(DBConnection):
     def connect(self):
         return self._conn;
         
-    def entity(self, cls, **kwargs):
-        entity = cls(**kwargs)
-        entity._is_new = False
-        entity._connection = self.name
-        
-        return entity
-        
-    def query(self, cls, id): #@ReservedAssignment
+    def queryOne(self, cls, id): #@ReservedAssignment
         
         sql = "select %s from `%s` where `%s`=%%s limit 1"%(",".join(cls.allKeys()),
             cls.tableName(), cls.primaryKey())
@@ -145,7 +108,7 @@ class MySQLDBConnection(DBConnection):
         for k, v in zip(cls.allKeys(), row):
             kwargs[k] = v
         
-        return self.entity(cls, **kwargs)
+        return self._createEntity(cls, row)
           
     def queryIds(self, cls, condition, args=[]): #@ReservedAssignment
             
@@ -185,16 +148,7 @@ class MySQLDBConnection(DBConnection):
         if not rows:
             return []
         
-        entitys = []
-        
-        for row in rows:
-            kwargs = {}
-            for k, v in zip(cls.allKeys(), row):
-                kwargs[k] = v
-            
-            entitys.append(self.entity(cls, **kwargs))
-            
-        return entitys
+        return [self._createEntity(cls, row) for row in rows]
     
     def insert(self, entity):
         if not isinstance(entity, Entity):
@@ -255,15 +209,13 @@ class MySQLDBConnection(DBConnection):
             
         sql += ",".join(keys)
         
-        sql += " WHERE `%s`=%s"%(entity.primaryKey(), entity.id)
+        sql += " WHERE `%s`=%s"%(entity.primaryKey(), getattr(entity, entity.primaryKey()))
         
         cursor = self._conn.cursor()
         n = cursor.execute(sql, tuple(values))
         cursor.close()
         
         return n == 1
-        
-        
 
 
 class ConnectionManager:
@@ -278,7 +230,7 @@ class ConnectionManager:
     def get(self, name):
         if not self.conf.has_key(name):
             if not self.conf.has_key('default'):
-                raise DBDefaultNotExists()
+                raise DefaultDBNotExists()
             return self.get('default')
         
         if not self.connections.has_key(name):
@@ -295,7 +247,9 @@ class ConnectionManager:
             if not cls:
                 cls = MySQLDBConnection
                 
-            self.connections[name] = cls(name, conf)
+            conn = cls(name, conf)
+            self.connections[name] = conn
+            logging.debug("init db connection: %s"%conn)
             
         return self.connections.get(name)
     

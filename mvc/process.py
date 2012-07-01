@@ -1,5 +1,4 @@
 '''
-Created on 2012-6-3
 
 @author: lifei
 '''
@@ -14,6 +13,7 @@ import logging
 from web import XRequest, XResponse
 from werkzeug.wrappers import BaseResponse
 from werkzeug.utils import redirect
+import json
 
 class CommitFailedError(Exception):
     pass
@@ -68,7 +68,7 @@ class XProcess:
                 controller_instance = controller_class(self.request)
 
                 if isinstance(controller_instance, XController):
-                    action_method = getattr(controller_instance, 'action_'+action)
+                    action_method = getattr(controller_instance, 'do%s'%action.title())
                     spec = inspect.getargspec(action_method.__func__)
                     func_args = spec.args
                     defaults = spec.defaults
@@ -118,6 +118,7 @@ class XProcess:
                             '', context['code'] or 404, mimetype='text/html')
                         return response
             except ImportError, AttributeError:
+                logging.exception("Can't find the method to process")
                 return NotFound()
                 
             except Exception as ex:

@@ -20,7 +20,7 @@ class CacheClient:
     def get(self, key):
         return None
     
-    def getMulti(self, key):
+    def getAll(self, key):
         return {}
     
     def set(self, key, value):
@@ -28,6 +28,13 @@ class CacheClient:
     
     def delete(self, key):
         pass
+    
+    def updateEntityStatus(self, entity):
+        entity._is_new = False
+        entity._load_from_cache = True
+        entity._cache = self.name
+        
+        return entity
     
 
 class CacheManager:
