@@ -63,12 +63,11 @@ class Entity(object):
     # override methods
     def __getattr__(self, key):
         
-        entity = self._getUnitOfWork().getBelongsToEntity(self, key)
-        
-        if entity:
-            return entity
-        
         cls = self.__class__
+        _belongs_to = cls._belongs_to
+        
+        if _belongs_to.has_key(key):
+            return self._getUnitOfWork().getBelongsToEntity(self, key)
         
         if hasattr(self, key):
             return super(Entity, self).__getattribute__(key)

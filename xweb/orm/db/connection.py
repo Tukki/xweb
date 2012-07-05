@@ -69,6 +69,9 @@ class DBConnection:
     def log(self):
         pass
     
+    def close(self):
+        pass
+    
 
 
     

@@ -87,36 +87,40 @@ class XProcess:
                             else:
                                 kwargs[func_arg] = self.request.args.get(func_args)
                     
+                    unitofwork = controller_instance.unitofwork
                     try:
                         controller_instance.before()       
                         action_method(**kwargs)
                         controller_instance.after()
-                        
-                        unitofwork = controller_instance.unitofwork
                         unitofwork.commit()
-                    except:
-                        controller_instance.context['code'] = 500
-                    
-                    context = controller_instance.context
+                        context = controller_instance.context
 
-                    if context['code'] == 200:
-                        if context['type'] == 'json':
-                            return XResponse(context['json'], mimetype='application/json')
-                        elif context['type'] == 'string':
-                            return XResponse(context['string'], mimetype='text/html')
+                        if context['code'] == 200:
+                            if context['type'] == 'json':
+                                return XResponse(context['json'], mimetype='application/json')
+                            elif context['type'] == 'string':
+                                return XResponse(context['string'], mimetype='text/html')
+                            else:
+                                template_path = "templates/%s"%controller
+                                jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+                                t = jinja_env.get_template(action + '.html')
+                                return XResponse(t.render(context), mimetype='text/html')
+                        elif context['code'] == 302 or context['code'] == 301:
+                            return redirect(context['url'], context['code'])
+                        elif context['code'] == 404:
+                            return NotFound()
                         else:
-                            template_path = "templates/%s"%controller
-                            jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
-                            t = jinja_env.get_template(action + '.html')
-                            return XResponse(t.render(context), mimetype='text/html')
-                    elif context['code'] == 302 or context['code'] == 301:
-                        return redirect(context['url'], context['code'])
-                    elif context['code'] == 404:
-                        return NotFound()
-                    else:
+                            response = BaseResponse(
+                                '', context['code'] or 404, mimetype='text/html')
+                            return response
+                    except Exception as ex:
+                        logging.exception("error in process action")
                         response = BaseResponse(
-                            '', context['code'] or 404, mimetype='text/html')
+                            str(ex), 500, mimetype='text/html')
                         return response
+                    finally:
+                        unitofwork.reset()
+                    
             except ImportError, AttributeError:
                 logging.exception("Can't find the method to process")
                 return NotFound()

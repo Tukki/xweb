@@ -47,6 +47,7 @@ class UnitOfWork:
             self.entity_list[cls_name] = {}
             
         self.entity_list[cls_name][entity.id] = entity
+        entity._unitofwork = self
         
     def commit(self):
         
@@ -143,7 +144,6 @@ class UnitOfWork:
         
         first_entity = entitys[0]
         first_entity.setProps('list_ids', ids)
-        first_entity.setProps('list_first', first_entity.id)
         for entity in entitys:
             self.register(entity)
             entity.setProps('list_first', first_entity.id)
@@ -270,7 +270,9 @@ class UnitOfWork:
     def makeKey(self, cls, id):
         return "%s:%s:%s:%s"%(XConfig.get('app_name'),
                               cls.__name__, id, cls._version)
-    
+        
+    def close(self):
+        self.connection_manager.close()
     
     
     # static method
@@ -288,4 +290,7 @@ class UnitOfWork:
         thread = threading.currentThread()
         
         if hasattr(thread, 'unitofwork'):
-            del thread.unitofwork
+            unitofwork = thread.unitofwork        
+            unitofwork.entity_list = {}
+            unitofwork.disable_cache = False
+            unitofwork.disable_preload = False

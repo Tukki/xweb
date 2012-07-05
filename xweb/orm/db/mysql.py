@@ -150,6 +150,8 @@ class MySQLDBConnection(DBConnection):
         
         return self._execute(sql, values)
     
+    def close(self):
+        self._conn.close()
     
     def __str__(self):
         return self.desc
