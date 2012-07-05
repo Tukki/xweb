@@ -8,6 +8,7 @@ Created on 2012-6-3
 import MySQLdb #@UnresolvedImport
 from exception import *
 import logging
+import time
 
 class DBConnection:
     '''
@@ -34,6 +35,18 @@ class DBConnection:
         entity._load_from_cache = False
         
         return entity
+    
+    def _execute(self, sql, values):
+        
+        cursor = self._conn.cursor()
+        t = time.time()
+        n = cursor.execute(sql, tuple(values))
+        t= time.time() - t
+        cursor.close()
+        logging.info("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
+                str(values), n, t*1000))
+        
+        return n == 1
         
     def queryOne(self, cls, id):
         return None      

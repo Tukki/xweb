@@ -3,7 +3,6 @@
 from werkzeug.routing import Rule, Map
 from werkzeug.debug import DebuggedApplication
 from xweb.config import XConfig
-from controller import XController
 from process import XProcess
 
 

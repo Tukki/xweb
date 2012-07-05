@@ -5,10 +5,20 @@ Created on 2012-6-4
 '''
 import sys
 import datetime
+import random
 sys.path.insert(0, '..')
 from domain import User
-from config import XConfig
-from orm.unitofwork import UnitOfWork
+from xweb.config import XConfig
+from xweb.orm import UnitOfWork
+
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(10)
+ch = logging.StreamHandler()
+ch.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+ch.setLevel(10)
+logger.addHandler(ch)
 
 config = {
     'db': {
@@ -43,17 +53,14 @@ i = 5
 for user in users:
     user.name = i*i
 
-user.remove()
-#unitofwork.sync(user.address)
-
-print user.address.__dict__
-
-user2 = User(id=3, name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
+user2 = User(id=int(random.random()*1000), name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
 
 unitofwork.register(user2)
 
 user = User.createByBiz(name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
 
 user.name = 'bbbb'
+
+print user.id
 
 unitofwork.commit()

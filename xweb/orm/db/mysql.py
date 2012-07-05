@@ -1,11 +1,14 @@
+#coding:utf8
 '''
 Created on 2012-7-5
 
 @author: lifei
 '''
 import MySQLdb #@UnresolvedImport
-from dbconnection import DBConnection
+from connection import DBConnection
 from xweb.orm.entity import Entity
+import logging
+import time
 
 class MySQLDBConnection(DBConnection):
     """
@@ -16,11 +19,14 @@ class MySQLDBConnection(DBConnection):
         
         kwargs = {}
         for k in conf:
-            if k in ['user', 'host', 'passwd', 'db', 'charset']:
+            if k in ['user', 'host', 'passwd', 'db', 'charset', 'port']:
                 kwargs[k] = conf.get(k)
         self.name = name
+        self.desc =  "%s<mysql://%s:%s/%s>"%(self.name, conf.get('host', '127.0.0.1'),
+                        conf.get('port', 3306), conf.get('db', 'test'))
+
         self._conn = MySQLdb.connect(**kwargs)
-        self._conn.autocommit(True)
+        self._conn.autocommit(False)
         
     def connect(self):
         return self._conn;
@@ -110,11 +116,7 @@ class MySQLDBConnection(DBConnection):
         sql += ",".join(place_holder)
         sql += ')'
         
-        cursor = self._conn.cursor()
-        n = cursor.execute(sql, tuple(values))
-        cursor.close()
-        
-        return n == 1
+        return self._execute(sql, values)
         
     
     def update(self, entity):
@@ -143,10 +145,11 @@ class MySQLDBConnection(DBConnection):
             
         sql += ",".join(keys)
         
-        sql += " WHERE `%s`=%s"%(entity.primaryKey(), getattr(entity, entity.primaryKey()))
+        sql += " WHERE `%s`=%%s"%entity.primaryKey()
+        values.append(getattr(entity, entity.primaryKey()))
         
-        cursor = self._conn.cursor()
-        n = cursor.execute(sql, tuple(values))
-        cursor.close()
-        
-        return n == 1
+        return self._execute(sql, values)
+    
+    
+    def __str__(self):
+        return self.desc

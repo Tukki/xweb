@@ -7,7 +7,7 @@ Created on 2012-6-3
 '''
 
 import threading
-from config import XConfig
+from xweb.config import XConfig
 from cache import CacheManager
 from db import ConnectionManager
 from idgenerator import IdGenerator
@@ -92,6 +92,7 @@ class UnitOfWork:
                     connection.connect().commit()
                     
         except:
+            logging.exception("error in commit")
             for name in db_names:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:

@@ -3,8 +3,8 @@ Created on 2012-6-2
 
 @author: lifei
 '''
-from mvc import XApp
-from config import XConfig
+from xweb.mvc import XApp
+from xweb.config import XConfig
 import rewrite
 
 config = {

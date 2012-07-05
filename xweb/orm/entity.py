@@ -56,7 +56,7 @@ class Entity(object):
     # protected methods       
     def _getUnitOfWork(self):
         if not self._unitofwork:
-            from orm.unitofwork import UnitOfWork
+            from unitofwork import UnitOfWork
             self._unitofwork = UnitOfWork.inst()
         return self._unitofwork
         
@@ -156,10 +156,9 @@ class Entity(object):
     def createByBiz(cls, **kwargs):
         
         if not kwargs.get('use_autoincrement_id'):
-            from orm.unitofwork import UnitOfWork
+            from unitofwork import UnitOfWork
             primaryKey = cls.primaryKey()
             unitofwork = UnitOfWork.inst()
-            
             if not kwargs.has_key(primaryKey):
                 kwargs[primaryKey] = unitofwork.idgenerator.get()
             
@@ -212,10 +211,10 @@ class Entity(object):
     
     @classmethod
     def get(cls, id):
-        from orm.unitofwork import UnitOfWork
+        from unitofwork import UnitOfWork
         return UnitOfWork.inst().get(cls, id)
     
     @classmethod
     def getAll(cls, condition, args=[]):
-        from orm.unitofwork import UnitOfWork
+        from unitofwork import UnitOfWork
         return UnitOfWork.inst().getAllByCond(cls, condition, args)

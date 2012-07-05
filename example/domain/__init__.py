@@ -1,4 +1,4 @@
-from orm.entity import Entity
+from xweb.orm import Entity
 
 
 class Address(Entity):
