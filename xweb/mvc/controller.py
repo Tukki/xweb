@@ -3,12 +3,12 @@ Created on 2012-6-2
 
 @author: lifei
 '''
-from orm.unitofwork import UnitOfWork
 
 
 class XController:
 
     def __init__(self, request):
+        from xweb.orm import UnitOfWork
         UnitOfWork.reset()
         self.unitofwork = UnitOfWork.inst()
         self.request = request

@@ -1,6 +1,6 @@
 '''
-Created on 2012-6-3
 
+@date 2012-6-3
 @author: lifei
 '''
 from werkzeug import Request, Response
