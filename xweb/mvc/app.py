@@ -1,10 +1,10 @@
-from controller import XController
-from process import XProcess
+
 
 from werkzeug.routing import Rule, Map
 from werkzeug.debug import DebuggedApplication
-from config import XConfig
-
+from xweb.config import XConfig
+from controller import XController
+from process import XProcess
 
 
 class XApp:

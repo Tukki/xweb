@@ -1,78 +1,12 @@
-#coding:utf8
 '''
-Created on 2012-6-3
+Created on 2012-7-5
 
 @author: lifei
 '''
-
 import MySQLdb #@UnresolvedImport
-from orm.entity import Entity
-import logging
+from dbconnection import DBConnection
+from xweb.orm.entity import Entity
 
-class DefaultDBNotExists(Exception):
-    pass
-
-class DBConnection:
-    '''
-    DBConnection的基类
-    主要维护ORM数据读取，写入等操作的代码
-    每一种的数据库类型或者NoSQL类型需要继承本类并实现相关代码
-    '''
-    
-    def __init__(self, conf):
-        self.conf = conf
-        driver = conf.get('driver')
-        if not driver:
-            driver = 'mysql'
-            
-        self._db = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",charset="utf8")
-    
-    def _createEntity(self, cls, row):
-        kwargs = {}
-        for k, v in zip(cls.allKeys(), row):
-            kwargs[k] = v
-        entity = cls(**kwargs)
-        entity._is_new = False
-        entity._db = self.name
-        entity._load_from_cache = False
-        
-        return entity
-        
-    def queryOne(self, cls, id):
-        return None      
-      
-    def queryIds(self, cls, condition, args):
-        return None
-    
-    def queryAll(self, cls, ids):
-        pass
-    
-    def insert(self, entity):
-        pass
-    
-    def update(self, entity):
-        pass
-    
-    def delete(self, entity):
-        pass
-    
-    def log(self):
-        pass
-    
-    @classmethod
-    def build(cls, name, conf):
-        driver = conf.get('driver')            
-        driver2cls = {
-            'mysql': MySQLDBConnection
-            }
-        
-        cls = driver2cls.get(driver)
-        
-        if not cls:
-            cls = MySQLDBConnection
-            
-        return cls(conf, name)
-    
 class MySQLDBConnection(DBConnection):
     """
     MySQL实现
@@ -216,45 +150,3 @@ class MySQLDBConnection(DBConnection):
         cursor.close()
         
         return n == 1
-
-
-class ConnectionManager:
-    '''
-    采用LasyLoad的方式加载DB链接
-    '''
-    
-    def __init__(self, conf):
-        self.conf = conf
-        self.connections = {}
-        
-    def get(self, name):
-        if not self.conf.has_key(name):
-            if not self.conf.has_key('default'):
-                raise DefaultDBNotExists()
-            return self.get('default')
-        
-        if not self.connections.has_key(name):
-            
-            conf = self.conf.get(name)
-            
-            driver = conf.get('driver')            
-            driver2cls = {
-                'mysql': MySQLDBConnection
-                }
-            
-            cls = driver2cls.get(driver)
-            
-            if not cls:
-                cls = MySQLDBConnection
-                
-            conn = cls(name, conf)
-            self.connections[name] = conn
-            logging.debug("init db connection: %s"%conn)
-            
-        return self.connections.get(name)
-    
-    def close(self):
-        for k in self.connections:
-            connection = self.connections.get(k)
-            connection.close()
-        
