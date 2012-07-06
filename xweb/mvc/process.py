@@ -26,23 +26,22 @@ class XProcess:
         self.start_response = start_response
 
     def __rewrite(self):
-        adapter = self.app.url_map.bind_to_environ(self.environ)
-        q, values = adapter.match()
         
-        if q:
-            if self.environ['QUERY_STRING']:
-                self.environ['QUERY_STRING'] += '&'+q
-            else:
-                self.environ['QUERY_STRING'] = q
+        for rule in self.app.rewrite_rules:
+            path_info = self.environ.get('PATH_INFO', '/')
+            q = rule.parseUrl(path_info)
+            if q is not None:
+                if self.environ['QUERY_STRING']:
+                    self.environ['QUERY_STRING'] += '&'+q
+                else:
+                    self.environ['QUERY_STRING'] = q
+                    
+                break
     
         self.request = XRequest(self.environ, populate_request=False)
         
-        if values:
-            self.request.context.update(values)
-            
         return True
-        
-            
+    
     def __process(self):
         
         controller  = self.request.get('c')

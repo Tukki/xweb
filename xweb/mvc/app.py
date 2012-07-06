@@ -4,6 +4,107 @@ from werkzeug.routing import Rule, Map
 from werkzeug.debug import DebuggedApplication
 from xweb.config import XConfig
 from process import XProcess
+import re
+import logging
+
+
+re.compile("\(\?P<([^>]+)>\)")
+
+keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
+
+class RewriteRule:
+    
+    def __init__(self, regex, params):
+        self.params = params
+        self.keys = {}
+        keys = keys_regex.findall(regex)
+        
+        for key, value in keys:
+            self.keys[key] = re.compile('^%s$' % value if value else '[^/]+')
+        
+        def func(m):
+            if not m.group(2):
+                return "(?P<%s>[^/]+)"%m.group(1)
+            else:
+                return "(?P<%s>%s)"%(m.group(1), m.group(2))
+            
+        pattern = "^%s$"%keys_regex.sub(func, regex)
+        self.pattern = re.compile(pattern)
+        self.urlfor = keys_regex.sub('%(\g<1>)s', regex)
+        self.regex = regex
+        
+    def parseUrl(self, path_info):
+        if not self.pattern.match(path_info):
+            return None
+        
+        match = self.pattern.search(path_info)
+        
+        params = []
+        
+        for k in match.groupdict():
+            v = match.groupdict().get(k)
+            params.append("%s=%s" % (k, v) )
+            
+        for k in self.params:
+            params.append("%s=%s" % (k, self.params.get(k)) )
+
+        return "&".join(params)
+        
+        
+    def createUrl(self, route, params):
+        assert isinstance(params, dict)
+        
+        controller, action = route.strip().split("/")
+
+        params['c'] = controller
+        params['a'] = action
+        
+        for key in self.keys:
+            pattern = self.keys.get(key)
+            
+            param = params.get(key)
+            
+            if not param:
+                return False
+            
+            if not pattern.match(str(param)):
+                return False
+            
+            
+        for key in self.params:
+            
+            param = params.get(key)
+            
+            if param is not None and param != self.params.get(key):
+                return False
+            
+            
+        default = {}
+        more = []
+        
+        
+        for key in params:
+            if key in self.params:
+                continue
+            
+            pattern = self.keys.get(key)
+            
+            if not pattern:
+                more.append( "%s=%s" % (key, params.get(key)))
+            else:
+                default[key] = params.get(key)
+                
+                
+        url = self.urlfor % default
+        
+        if not more:
+            return url
+        
+        if url.find("?")>-1:
+            return url + "&" + "&".join(more)
+        else:
+            return url + "?" + "&".join(more)
+        
 
 
 class XApp:
@@ -18,20 +119,31 @@ class XApp:
     def loadConfig(self):
         try:
             if not self.rewrite_rules:
-                _rules = XConfig.get('rewrite_rules')
-                if isinstance(_rules, list):
-                    for rule, endpoint in _rules:
-                        self.rewrite_rules.append(Rule(rule, endpoint=endpoint))
+                rules = XConfig.get('rewrite_rules')
+                if isinstance(rules, list):
+                    self.buildRewrite(rules)
         except:
             pass
-    
-        self.rewrite_rules.extend( [
-                Rule('/<c>/<a>/',     endpoint='',        ),
-                Rule('/<c>/',         endpoint='a=index',     ),
-                Rule('/',             endpoint='c=default&a=index',),
-            ])
         
-        self.url_map = Map(self.rewrite_rules)
+        XConfig.App = self
+        
+    def buildRewrite(self, rules):
+        self.rewrite_rules = []
+        for rule in rules:
+            self.rewrite_rules.append(RewriteRule(*rule))
+            
+        self.rewrite_rules.extend([
+            RewriteRule('/',                  {'c':'default', 'a':'index'}),
+            RewriteRule('/<c>/',              {'a':'index'}),
+            RewriteRule('/<c>/<a>/',          {}),
+                                   ])
+        
+    def createUrl(self, route, params):
+        for rule in self.rewrite_rules:
+            url = rule.createUrl(route, params)
+            
+            if url:
+                return url
         
     def run(self):
         from werkzeug.serving import run_simple

@@ -1,15 +1,20 @@
 from xweb.mvc.controller import XController, AsString, AsJSON
+from xweb.config import XConfig
 
 
 class DefaultController(XController):
 
-    @AsJSON
+    @AsString
     def doIndex(self):
         from domain import User
         users = User.getAll('name is not null')
+        self.echo(users)
+       
+    @AsString 
+    def doHelp(self):
+        self.echo("hello world")
         
-        i = 5
-        for user in users:
-            print user.address
         
-        self.json(users)
+    @AsString
+    def doShort(self):
+        self.echo(XConfig.App.createUrl('default/longs', {'short_id':110000L}))

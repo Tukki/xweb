@@ -1,8 +1,8 @@
 
-
 rewrite_rules = [
-        ('/help.html', 'c=default&a=help',),
-        ('/<short_id>.htm', 'c=default&a=short',),
+        ('/help.html', {'c':'default', 'a':'help'},),
+        ('/<a|short|long>/<short_id|\d+>.htm', {'c':'default'}),
+        ('/<a|(short|long)>/11.htm', {'c':'default'}),
 ]
 
 
