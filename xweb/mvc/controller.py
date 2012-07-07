@@ -16,8 +16,9 @@ class XController:
         self.context = {
             'code':200,
             'type':'html',
-            'string': ''
-            }
+            'string': '',
+            'json':None,
+        }
         
     def before(self):
         pass
@@ -36,6 +37,10 @@ class XController:
 
     def asString(self):
         self.context['type'] = 'string'
+        
+    def redirect(self, url):
+        self.context['url'] = url
+        self.context['code'] = 302
 
 
 def AsJSON(func):

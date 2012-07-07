@@ -17,4 +17,6 @@ class DefaultController(XController):
         
     @AsString
     def doShort(self):
-        self.echo(XConfig.App.createUrl('default/longs', {'short_id':110000L}))
+        print dir(self.request)
+        self.echo(self.request.get('short_id'))
+        self.echo(XConfig.App.createUrl('default/long', {'short_id':110000L}))

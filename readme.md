@@ -26,11 +26,11 @@ xweb框架是一款基于python语言的Web开发框架
 
 ## 名词解释
 
-App: 以域名划分，例如，一个项目有前台，后台，图片等服务，分别为www.xxx.com, admin.xxx.com和img.xxx.com，则分别对应www,admin和img的app
+> App: 以域名划分，例如，一个项目有前台，后台，图片等服务，分别为www.xxx.com, admin.xxx.com和img.xxx.com，则分别对应www,admin和img的app
 
-Controller: 以业务需求划分，例如：用户相关操作，订单操作分别属于UserController和OrderController，需要登录的在Controller的基类中实现或者在before方法中实现
+> Controller: 以业务需求划分，例如：用户相关操作，订单操作分别属于UserController和OrderController，需要登录的在Controller的基类中实现或者在before方法中实现
 
-Action: 一次具体的请求，如：下单，可标示为: controller/action，此为默认地址，rewrite规则书写方式为: c=controller&a=action。
+> Action: 一次具体的请求，如：下单，可标示为: controller/action，此为默认地址，rewrite规则书写方式为: c=controller&a=action。
 
 
 
