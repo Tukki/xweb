@@ -4,16 +4,16 @@
 '''
 
 import sys
-from controller import XController
 import inspect
-from jinja2.environment import Environment
-from jinja2.loaders import FileSystemLoader
-from werkzeug.exceptions import NotFound, HTTPException #@UnresolvedImport
 import logging
-from web import XRequest, XResponse
+import json
 from werkzeug.wrappers import BaseResponse
 from werkzeug.utils import redirect
-import json
+from werkzeug.exceptions import NotFound, HTTPException #@UnresolvedImport
+from jinja2.environment import Environment
+from jinja2.loaders import FileSystemLoader
+from controller import XController
+from web import XRequest, XResponse
 
 class CommitFailedError(Exception):
     pass
@@ -49,14 +49,19 @@ class XProcess:
 
         if controller and action:
             controller = controller.lower()
-            action = action.lower()
-            controller_module_path = 'controllers.%s'%controller
+            action  = action.lower()
             if controller == 'default':
                 controller_module_path = 'controllers'
+            else:
+                controller_module_path = 'controllers.%s'%controller
+            
             controller_module = sys.modules.get(controller_module_path)
             try:
                 if not controller_module:
-                    controller_module = __import__(controller_module_path)
+                    try:
+                        controller_module = __import__(controller_module_path)
+                    except ImportError:
+                        return NotFound()
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
                 if not hasattr(controller_module, controller_class_name):
@@ -67,7 +72,12 @@ class XProcess:
                 controller_instance = controller_class(self.request)
 
                 if isinstance(controller_instance, XController):
-                    action_method = getattr(controller_instance, 'do%s'%action.title())
+                    action_method_name = 'do%s'%action.title()
+                    
+                    if not hasattr(controller_instance, action_method_name):
+                        return NotFound()
+                    
+                    action_method = getattr(controller_instance, action_method_name)
                     spec = inspect.getargspec(action_method.__func__)
                     func_args = spec.args
                     defaults = spec.defaults
@@ -91,12 +101,15 @@ class XProcess:
                         controller_instance.before()       
                         action_method(**kwargs)
                         controller_instance.after()
-                        unitofwork.commit()
+                        
+                        if not unitofwork.commit():
+                            raise Exception("commit error")
+                        
                         context = controller_instance.context
 
                         if context['code'] == 200:
                             if context['type'] == 'json':
-                                return XResponse(context['json'], mimetype='application/json')
+                                return XResponse(context['json'],   mimetype='application/json')
                             elif context['type'] == 'string':
                                 return XResponse(context['string'], mimetype='text/html')
                             else:
@@ -114,9 +127,7 @@ class XProcess:
                             return response
                     except Exception as ex:
                         logging.exception("error in process action")
-                        response = BaseResponse(
-                            str(ex), 500, mimetype='text/html')
-                        return response
+                        return BaseResponse(str(ex), 500, mimetype='text/html')
                     finally:
                         unitofwork.reset()
                     

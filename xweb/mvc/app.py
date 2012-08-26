@@ -1,7 +1,7 @@
 
 
-from werkzeug.routing import Rule, Map
-from werkzeug.debug import DebuggedApplication
+from werkzeug.debug import DebuggedApplication #@UnresolvedImport
+from werkzeug.serving import run_simple #@UnresolvedImport
 from xweb.config import XConfig
 from process import XProcess
 import re
@@ -126,6 +126,7 @@ class XApp:
             pass
         
         XConfig.App = self
+        return self
         
     def buildRewrite(self, rules):
         self.rewrite_rules = []
@@ -136,7 +137,7 @@ class XApp:
             RewriteRule('/',                  {'c':'default', 'a':'index'}),
             RewriteRule('/<c>/',              {'a':'index'}),
             RewriteRule('/<c>/<a>/',          {}),
-                                   ])
+        ])
         
     def createUrl(self, route, params):
         for rule in self.rewrite_rules:
@@ -146,10 +147,8 @@ class XApp:
                 return url
         
     def run(self):
-        from werkzeug.serving import run_simple
         run_simple('0.0.0.0', 5000, self.runApp, use_reloader=True, use_debugger=True)    
         
     def runDebug(self):
-        from werkzeug.serving import run_simple
         app = DebuggedApplication(self.runApp, evalex=True)
         run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True)

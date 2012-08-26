@@ -1,6 +1,4 @@
 '''
-Created on 2012-6-2
-
 @author: lifei
 '''
 

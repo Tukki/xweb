@@ -34,8 +34,14 @@ class UnitOfWork:
         self.disable_cache = False
         self.disable_preload = False
         
-        connection = self.connection_manager.get(XConfig.get('idgenerator.db'))
-        self.idgenerator = IdGenerator(connection, XConfig.get('idgenerator.count') or 5)
+    def idgenerator(self):
+        
+        if not hasattr(self, '_idgenerator') or not self._idgenerator:
+            connection = self.connection_manager.get(XConfig.get('idgenerator.db'))
+            self._idgenerator = IdGenerator(connection, XConfig.get('idgenerator.count') or 5)
+            
+        return self._idgenerator
+        
     
     def register(self, entity):
         '''注册实体到工作单元
@@ -92,12 +98,14 @@ class UnitOfWork:
                 if name == connection.name:
                     connection.connect().commit()
                     
+            return True
         except:
             logging.exception("error in commit")
             for name in db_names:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
                     connection.connect().rollback()
+            return False
         finally:
             self.entity_list.clear()
                     

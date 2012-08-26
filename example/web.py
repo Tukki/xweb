@@ -3,6 +3,9 @@ Created on 2012-6-2
 
 @author: lifei
 '''
+import sys
+sys.path.insert(0, '..')
+
 from xweb.mvc import XApp
 from xweb.config import XConfig
 import rewrite

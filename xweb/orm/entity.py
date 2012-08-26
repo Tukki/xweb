@@ -144,22 +144,20 @@ class Entity(object):
     def onUpdate(self):
         pass
         
-        
-            
-        
-        
     #==== class method ====
-    
-    
     @classmethod
     def createByBiz(cls, **kwargs):
+        '''
+        创建实体并自己注册到工作单元内
+        @param cls: 实体类型
+        '''
         
         if not kwargs.get('use_autoincrement_id'):
             from unitofwork import UnitOfWork
             primaryKey = cls.primaryKey()
             unitofwork = UnitOfWork.inst()
             if not kwargs.has_key(primaryKey):
-                kwargs[primaryKey] = unitofwork.idgenerator.get()
+                kwargs[primaryKey] = unitofwork.idgenerator().get()
             
         entity = cls(**kwargs)
         unitofwork.register(entity)
