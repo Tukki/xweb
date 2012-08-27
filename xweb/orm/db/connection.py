@@ -7,7 +7,7 @@ Created on 2012-6-3
 
 import MySQLdb #@UnresolvedImport
 from exception import *
-import logging
+from xweb.util import logging
 import time
 
 class DBConnection:
@@ -38,15 +38,69 @@ class DBConnection:
     
     def _execute(self, sql, values):
         
+        n = 0
         cursor = self._conn.cursor()
-        t = time.time()
-        n = cursor.execute(sql, tuple(values))
-        t= time.time() - t
-        cursor.close()
-        logging.info("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
-                str(values), n, t*1000))
         
-        return n == 1
+        try:
+            t = time.time()
+            n = cursor.execute(sql, tuple(values))
+            t= time.time() - t
+        finally:
+            cursor.close()
+            logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
+                    str(values), n, t*1000))
+        
+        return n > 0
+    
+    def _query(self, sql, values):
+        
+        n = 0
+        cursor = self._conn.cursor()
+        
+        try:
+            t = time.time()
+            n = cursor.execute(sql, tuple(values))
+            t= time.time() - t
+        finally:
+            cursor.close()
+            logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
+                    str(values), n, t*1000))
+        
+        return n > 0
+    
+    def queryOneBySQL(self, sql, *args):
+        
+        cursor = self._conn.cursor()
+        
+        try:
+            t = time.time()
+            cursor.execute(sql, *args)
+            row = cursor.fetchone()
+            t= time.time() - t
+            logging.debug("sql: \"%s\", params: %s, time: %.1fms"%(sql,
+                    str(*args), t*1000))
+            return row
+        finally:
+            cursor.close()
+            
+        return None
+    
+    def queryAllBySQL(self, sql, *args):
+        
+        cursor = self._conn.cursor()
+        
+        try:
+            t = time.time()
+            cursor.execute(sql, *args)
+            row = cursor.fetchall()
+            t = time.time() - t
+            logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
+                    str(*args), len(row), t*1000))
+            return row
+        finally:
+            cursor.close()
+            
+        return None
         
     def queryOne(self, cls, id):
         return None      

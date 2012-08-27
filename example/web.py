@@ -5,6 +5,7 @@ Created on 2012-6-2
 '''
 import sys
 sys.path.insert(0, '..')
+sys.path.insert(0, '.')
 
 from xweb.mvc import XApplication
 from xweb.config import XConfig
@@ -29,7 +30,7 @@ config = {
 
 XConfig.load(config)
 
-www_app = XApplication('controllers')
+www_app = XApplication('www')
 
 if __name__ == '__main__':
     www_app.runDebug()

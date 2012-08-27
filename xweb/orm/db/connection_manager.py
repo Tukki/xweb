@@ -5,9 +5,10 @@ Created on 2012-7-5
 @author: lifei
 '''
 
-import logging
+
 from exception import DefaultDBNotExists
 from mysql import MySQLDBConnection
+from xweb.util import logging
 
 class ConnectionManager:
     '''
@@ -18,8 +19,14 @@ class ConnectionManager:
         self.conf = conf
         self.connections = {}
         
-    def get(self, name):
-        if not self.conf.has_key(name):
+    def get(self, name, read_only=True):
+        
+        if not read_only:
+            db_name = "%s_write" % name
+        else:
+            db_name = name
+            
+        if not self.conf.has_key(db_name):
             if not self.conf.has_key('default'):
                 raise DefaultDBNotExists()
             return self.get('default')

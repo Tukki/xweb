@@ -124,14 +124,16 @@ class XApplication:
         self.rewrite_rules = []
         self.loadConfig()
         self.app_name = app_name
+        
         controller_module_path = "%s.controller" % app_name
-        self.controller_module = sys.modules.get(controller_module_path)
-        if not self.controller_module:
+        app_module = sys.modules.get(controller_module_path)
+        
+        if not app_module:
             try:
-                self.controller_module = __import__(controller_module_path)
-            except ImportError:
-                raise Exception("Error in importing controller module")
-            
+                app_module = __import__(controller_module_path)
+                self.controller_module = app_module.controller
+            except:
+                raise Exception("Error in importing controller module, app startup failed")
             
     def rewrite(self, environ):
         

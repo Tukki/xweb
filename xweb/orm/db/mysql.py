@@ -7,7 +7,7 @@ Created on 2012-7-5
 import MySQLdb #@UnresolvedImport
 from connection import DBConnection
 from xweb.orm.entity import Entity
-import logging
+from xweb.util import logging
 import time
 
 class MySQLDBConnection(DBConnection):
@@ -36,11 +36,8 @@ class MySQLDBConnection(DBConnection):
         sql = "select %s from `%s` where `%s`=%%s limit 1"%(",".join(cls.allKeys()),
             cls.tableName(), cls.primaryKey())
         
-        cursor = self._conn.cursor()
-        cursor.execute(sql, (id,))
-        row = cursor.fetchone()
-        cursor.close()
-        
+        row = self.queryOneBySQL(sql, (id,))
+            
         if not row:
             return None
         
@@ -50,22 +47,19 @@ class MySQLDBConnection(DBConnection):
         
         return self._createEntity(cls, row)
           
-    def queryIds(self, cls, condition, args=[]): #@ReservedAssignment
+    def queryIds(self, cls, condition, args=[]):
             
         sql = "select %s from `%s` where %s"%(cls.primaryKey(),
             cls.tableName(), condition or '1=1')
         
-        cursor = self._conn.cursor()
-        cursor.execute(sql, tuple(args))
-        row = cursor.fetchall()
-        cursor.close()
+        row = self.queryAllBySQL(sql, tuple(args))
         
         if not row:
             return []
         
         return [r[0] for r in row]
            
-    def queryAll(self, cls, ids): #@ReservedAssignment
+    def queryAll(self, cls, ids):
         
         if not ids:
             return []
@@ -80,10 +74,7 @@ class MySQLDBConnection(DBConnection):
         sql = "select %s from `%s` where `%s` in(%s)"%(",".join(cls.allKeys()),
             cls.tableName(), cls.primaryKey(), ','.join(keys))
         
-        cursor = self._conn.cursor()
-        cursor.execute(sql, tuple(values))
-        rows = cursor.fetchall()
-        cursor.close()
+        rows = self.queryAllBySQL(sql, tuple(values))
         
         if not rows:
             return []

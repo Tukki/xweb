@@ -56,6 +56,8 @@ class UnitOfWork:
         entity._unitofwork = self
         
     def commit(self):
+        '''
+        '''
         
         deletes = []
         updates = []
