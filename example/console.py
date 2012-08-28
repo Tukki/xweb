@@ -7,7 +7,6 @@ import sys
 import datetime
 import random
 sys.path.insert(0, '..')
-from domain import User
 from xweb.config import XConfig
 from xweb.orm import UnitOfWork
 
@@ -24,10 +23,18 @@ config = {
     'db': {
         'default': {
             'driver':'mysql',   
-            'user': 'root',
-            'passwd': '',
-            'host': '127.0.0.1',
-            'db': 'test',
+            'user': 'ssro',
+            'passwd': '517nrm',
+            'host': '192.168.20.44',
+            'db': 'webdb',
+            'charset': 'utf8'
+        },
+        'mining': {
+            'driver':'mysql',   
+            'user': 'mining',
+            'passwd': 'mining@feifei.com19840835',
+            'host': '192.168.20.48',
+            'db': 'mining',
             'charset': 'utf8'
         }
     },
@@ -43,24 +50,60 @@ config = {
 
 XConfig.load(config)
 
+
 unitofwork = UnitOfWork.inst()
+conn = unitofwork.connection_manager.get('default')
+mconn = unitofwork.connection_manager.get('mining')
 
-user = User.get(1)
+cursor = conn.connect().cursor()
+cursor.execute('select platform_user_id from core_user_connect where platform_app_id=1')
+user_ids_set = set([str(r[0]) for r in cursor.fetchall()])
+user_ids = list(user_ids_set)
+cursor.close()
 
-users = User.getAll('name is not null')
+current_pos = 0
+total_pos = len(user_ids)
+all_ids = []
+while True:
+    uids = user_ids[current_pos:current_pos+10000]
+    if not uids:
+        break
+    cursor = mconn.connect().cursor()
+    sql='''SELECT a.`id` FROM sns_user AS a where a.uid in (%s)''' 
+    in_p=', '.join(list(map(lambda x: '%s', uids)))
+    sql = sql % in_p
+    cursor.execute(sql, uids) 
+    sids = [r[0] for r in cursor.fetchall()]
 
-i = 5
-for user in users:
-    user.name = i*i
+    if not sids:
+        break
+    
+    print "sids: %s" % len(sids)
+    
 
-user2 = User(id=int(random.random()*1000), name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
+    sql='''
+    SELECT c.uid FROM sns_user_friend AS a
+    JOIN sns_user AS c ON a.`friend_id`=c.`id`
+    WHERE a.`user_id` IN (%s);
+    ''' 
+    in_p=', '.join(list(map(lambda x: '%s', sids)))
+    sql = sql % in_p
+    cursor.execute(sql, sids) 
+    fids = [str(r[0]) for r in cursor.fetchall()]
+    all_ids += fids
 
-unitofwork.register(user2)
+    print "fids: %s" % len(fids)
 
-user = User.createByBiz(name="xxx", passwd="www", create_time=datetime.datetime(2011, 10, 10, 0, 0), address_id=1)
+    current_pos += 10000
+    print "%s..." % (float(current_pos)/int(total_pos))
 
-user.name = 'bbbb'
+idset = set(all_ids)
 
-print user.id
+print "%s" % len(idset)
 
-unitofwork.commit()
+cnt = 0
+for id_ in user_ids_set:
+    if id_ not in idset:
+        cnt += 1
+
+print cnt

@@ -11,7 +11,6 @@ class DefaultController(XController):
         self.echo("hehe")
         import time
         self.context['user'] = time.time()
-        self.setCode(500, 'HHH')
        
     @AsString 
     def doHelp(self):

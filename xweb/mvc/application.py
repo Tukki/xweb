@@ -3,6 +3,7 @@
 import re
 import sys
 import inspect
+import logging
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple
 from werkzeug.exceptions import NotFound, HTTPException
@@ -113,18 +114,26 @@ class XRewriteRule:
             return url + "?" + "&".join(more)
         
 
-
 class XApplication:
     '''
     Application类
     '''
-    
-    def __init__(self, app_name):
+    def __init__(self, app_name, base_path=''):
         self.rewrite_rules = []
         self.loadConfig()
         self.app_name = app_name
         self.use_debuger = False
-        template_path = "%s/templates" % (self.app_name)
+        if base_path:
+            template_path = "%s/%s/templates" % (base_path, self.app_name)
+        else:
+            template_path = "%s/templates" % (self.app_name)
+
+        logging.info('base_path %s template_path %s' , base_path, template_path)
+
+        if not os.path.isdir(template_path):
+            raise Exception('template_path %s not found' % template_path)
+
+    
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
         
         controller_module_path = "%s.controller" % app_name
@@ -149,9 +158,9 @@ class XApplication:
                     environ['QUERY_STRING'] = q
                     
                 break
-    
+        
         return XRequest(environ, populate_request=False)
-    
+        
     def process(self, request):
         
         controller  = request.get('c')
@@ -255,17 +264,13 @@ class XApplication:
             return controller_instance.response
         
         return NotFound()
-    
     def render(self, template_name, context):
         t = self.jinja_env.get_template(template_name)
         return t.render(context)
-    
     def handleException(self, controller, action, ex):
         return BadRequest(ex)
-    
     def createApp(self):
         return self.runApp
-    
     def runApp(self, environ, start_response):
         response = None
         try:
@@ -276,7 +281,6 @@ class XApplication:
         
         if response:
             return response(environ, start_response)
-
     def loadConfig(self):
         try:
             if not self.rewrite_rules:
