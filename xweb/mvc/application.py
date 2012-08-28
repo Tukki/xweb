@@ -1,19 +1,18 @@
 # coding: utf8
 
 import re
-import logging
 import sys
 import inspect
-from werkzeug.debug import DebuggedApplication #@UnresolvedImport
-from werkzeug.serving import run_simple #@UnresolvedImport
-from werkzeug.wrappers import BaseResponse
-from werkzeug.utils import redirect
-from werkzeug.exceptions import NotFound, HTTPException #@UnresolvedImport
+from werkzeug.debug import DebuggedApplication
+from werkzeug.serving import run_simple
+from werkzeug.exceptions import NotFound, HTTPException
 from jinja2.environment import Environment
 from jinja2.loaders import FileSystemLoader
 from controller import XController
-from web import XRequest, XResponse
+from xweb.util import logging
+from web import XRequest
 from xweb.config import XConfig
+from werkzeug.exceptions import BadRequest, abort
 
 
 re.compile("\(\?P<([^>]+)>\)")
@@ -124,6 +123,9 @@ class XApplication:
         self.rewrite_rules = []
         self.loadConfig()
         self.app_name = app_name
+        self.use_debuger = False
+        template_path = "%s/templates" % (self.app_name)
+        self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
         
         controller_module_path = "%s.controller" % app_name
         app_module = sys.modules.get(controller_module_path)
@@ -157,87 +159,109 @@ class XApplication:
 
         if controller and action:
             controller = controller.lower()
-            action  = action.lower()
+            action     = action.lower()
 
             try:
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
                 if not hasattr(self.controller_module, controller_class_name):
-                    return NotFound()
+                    return BadRequest('Controller NOT FOUND')
                     
                 controller_class = getattr(self.controller_module, controller_class_name)
 
-                controller_instance = controller_class(request)
+                controller_instance = controller_class(request, self)
+                
+                if not isinstance(controller_instance, XController):
+                    return BadRequest('Controller Type Error')
 
-                if isinstance(controller_instance, XController):
-                    action_method_name = 'do%s'%action.title()
+                action_method_name = 'do%s'%action.title()
+                
+                if not hasattr(controller_instance, action_method_name):
+                    return BadRequest('Method NOT FOUND')
+                
+                action_method = getattr(controller_instance, action_method_name)
+                if not callable(action_method):
+                    return BadRequest('%s.%s is not callable', controller_class_name, action_method_name)
+                
+                spec = inspect.getargspec(action_method.__func__)
+                func_args = spec.args
+                defaults = spec.defaults
+                
+                kwargs = {}
+                if defaults and func_args:
+                    func_args = list(func_args)
+                    defaults = list(defaults)
                     
-                    if not hasattr(controller_instance, action_method_name):
-                        return NotFound()
-                    
-                    action_method = getattr(controller_instance, action_method_name)
-                    spec = inspect.getargspec(action_method.__func__)
-                    func_args = spec.args
-                    defaults = spec.defaults
-                    
-                    kwargs = {}
-                    if defaults and func_args:
-                        func_args = list(func_args)
-                        defaults = list(defaults)
-                        
-                        for i in range(len(func_args)-len(defaults)): #@UnusedVariable
-                            defaults.insert(0, None)
-                                
-                        for func_arg, arg in zip(func_args, defaults):
-                            if not self.request.args.has_key(func_arg):
-                                kwargs[func_arg] = arg
-                            else:
-                                kwargs[func_arg] = request.args.get(func_args)
-                    
-                    unitofwork = controller_instance.unitofwork
-                    try:
-                        controller_instance.before()       
-                        action_method(**kwargs)
-                        controller_instance.after()
-                        
-                        if not unitofwork.commit():
-                            raise Exception("commit error")
-                        
-                        context = controller_instance.context
-
-                        if context['code'] == 200:
-                            if context['type'] == 'json':
-                                return XResponse(context['json'],   mimetype='application/json')
-                            elif context['type'] == 'string':
-                                return XResponse(context['string'], mimetype='text/html')
-                            else:
-                                template_path = "%s/templates/%s" % (self.app_name, controller)
-                                jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
-                                t = jinja_env.get_template(action + '.html')
-                                return XResponse(t.render(context), mimetype='text/html')
-                        elif context['code'] == 302 or context['code'] == 301:
-                            return redirect(context['url'], context['code'])
-                        elif context['code'] == 404:
-                            return NotFound()
+                    for i in range(len(func_args)-len(defaults)): #@UnusedVariable
+                        defaults.insert(0, None)
+                            
+                    for func_arg, arg in zip(func_args, defaults):
+                        if not self.request.args.has_key(func_arg):
+                            kwargs[func_arg] = arg
                         else:
-                            response = BaseResponse(
-                                '', context['code'] or 404, mimetype='text/html')
-                            return response
-                    except Exception as ex:
-                        logging.exception("error in process action")
-                        return BaseResponse(str(ex), 500, mimetype='text/html')
-                    finally:
-                        unitofwork.reset()
+                            kwargs[func_arg] = request.args.get(func_args)
                     
-            except ImportError, AttributeError:
+            except ImportError, AttributeError: #@ReservedAssignment
                 logging.exception("Can't find the method to process")
-                return NotFound()
+                return BadRequest('%s is not callable', action_method_name)
                 
             except Exception as ex:
                 logging.exception(ex)
-                return XResponse(str(ex), mimetype='text/html')
+                return self.handleException(controller=controller, action=action, ex=ex)             
+           
+            unitofwork = controller_instance.unitofwork
+            try:
+                controller_instance.before()       
+                action_method(**kwargs)
+                controller_instance.after()
+                
+                if not unitofwork.commit():
+                    raise Exception("commit error")
+                
+                context = controller_instance.context
+                response_type = context.get('type')
+                status_code = controller_instance.response.status_code
+                
+                if status_code == 200:
+                    if response_type == 'json':
+                        controller_instance.response.data = context.get('json') or ''
+                    elif response_type == 'string':
+                        controller_instance.response.data = context.get('string') or ''
+                    else:
+                        
+                        if hasattr(controller_instance, 'template') and controller_instance.template:
+                            template_name = controller_instance.template
+                        else:
+                            template_name = "%s/%s.html" % (controller, action)
+                            
+                        if hasattr(controller_instance, 'render') and callable(controller_instance.render):
+                            controller_instance.response.data = controller_instance.render(action=action)
+                        else:
+                            controller_instance.response.data = self.render(template_name, context)
+                else:
+                    return abort(status_code, context.get('description'))
+            except Exception, ex:
+                if hasattr(controller_instance, 'handleException') and callable(controller_instance.handleException):
+                    kwargs['action'] = action
+                    kwargs['ex'] = ex
+                    controller_instance.handleException(**kwargs)
+                else:
+                    if self.use_debuger:
+                        raise
+                    else:
+                        logging.exception("error in process action")
+                        return self.handleException(controller, action, ex)
+            
+            return controller_instance.response
         
         return NotFound()
+    
+    def render(self, template_name, context):
+        t = self.jinja_env.get_template(template_name)
+        return t.render(context)
+    
+    def handleException(self, controller, action, ex):
+        return BadRequest(ex)
     
     def createApp(self):
         return self.runApp
@@ -282,10 +306,13 @@ class XApplication:
             
             if url:
                 return url
+            
+        return ''
         
     def run(self):
         run_simple('0.0.0.0', 5000, self.runApp, use_reloader=True, use_debugger=True)    
         
     def runDebug(self):
+        self.use_debuger = True
         app = DebuggedApplication(self.runApp, evalex=True)
         run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True)

@@ -4,13 +4,16 @@
 
 
 from xweb.orm import UnitOfWork
+from xweb.mvc.web import XResponse
 
 class XController:
 
-    def __init__(self, request):
+    def __init__(self, request, app):
         UnitOfWork.reset()
         self.unitofwork = UnitOfWork.inst()
         self.request = request
+        self.response = XResponse()
+        self.app = app
         self.context = {
             'code':200,
             'type':'html',
@@ -31,14 +34,20 @@ class XController:
         self.context['json'] = obj
 
     def asJSON(self):
+        self.response.headers['Content-Type'] = 'application/json; charset=utf-8'
         self.context['type'] = 'json'
 
     def asString(self):
+        self.response.headers['Content-Type'] = 'text/plain; charset=utf-8'
         self.context['type'] = 'string'
+
+    def setCode(self, code, desc=None):
+        self.response.status_code = code
+        self.context['description'] = desc
         
     def redirect(self, url):
-        self.context['url'] = url
-        self.context['code'] = 302
+        self.response.status_code = 302
+        self.response.headers['Location'] = url
 
 
 def AsJSON(func):
