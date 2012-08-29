@@ -7,89 +7,106 @@
 from xweb.orm import UnitOfWork
 from xweb.mvc.web import XResponse
 
+content_type_map = {
+    'json': 'application/json',
+    'text': 'text/plain',
+    'text': 'text/plain',
+    'xml':  'application/xml',
+    'html': 'text/html',
+}
+
+
+
 class XController(object):
 
     def __init__(self, request, application):
         self.unitofwork = UnitOfWork.inst()
         self.request = request
         self.response = XResponse()
-        self.response.headers['Content-Type'] = 'text/html; charset=utf-8'
         self.app = application
         
-        self.context.update({
-            'code':200,
-            'type':'html',
-            'string': '',
-            'json':None,
-        })
-        
         self.content_type = 'html'
-        self.charset = 'utf-8'
+        self.charset = self.response.charset
         
         # 识别这个请求是否是只读的
         self.read_only = False
         
         # for short
-        self.createUrl = self.app.createUrl
-        self.headers = self.response.headers
-        self.setCookies = self.response.set_cookie
-        self.context = self.request.context
+        self.createUrl      = self.app.createUrl
+        self.headers        = self.response.headers
+        self.setCookies     = self.response.set_cookie
+        self.secure_cookies = self.request.secure_cookies
+        self.context        = self.request.context
+        self.json           = {}
+        self.text           = self.response.data
+        self.action         = 'index'
+
+    def commit(self):
+        return not self.read_only and self.unitofwork.commit()
         
     def beforeAction(self):
-        pass
+        return True
     
     def afterAction(self):
         pass
         
-    def echo(self, string):
-        self.context['string'] += str(string)
+    def echo(self, text):
+        self.text += str(text)
         
-    def json(self, obj):
-        self.context['json'] = obj
+    def setContentType(self, content_type):
+        self.content_type = content_type
+        header = content_type_map.get(content_type, 'text/plain')
+        self.response.mimetype = header
 
-    def asJSON(self):
-        self.response.headers['Content-Type'] = 'application/json; charset=%s' % self.charset
-        self.context_type = 'json'
-
-    def asString(self):
-        self.response.headers['Content-Type'] = 'text/plain; charset=%s' % self.charset
-        self.context_type = 'string'
-
-    def setCode(self, code, desc=None):
+    def setStatusCode(self, code, desc=None):
         self.response.status_code = code
         self.context['description'] = desc
         
     def redirect(self, url):
         self.response.status_code = 302
-        self.response.headers['Location'] = url
+        self.response.location = url
         
     def redirect301(self, url):
         self.response.status_code = 301
-        self.response.headers['Location'] = url
+        self.response.location = url
+
+    def end(self):
+        self.read_only = True
+
+        if self.content_type not in ['json', 'text']:
+            self.content_type = 'text'
         
-    def __getattribute__(self, key, *args, **kwargs):
-        
-        try:
-            return object.__getattribute__(self, key, *args, **kwargs)
-        except:
-            
-            for k in ['request', 'response']:
-                if hasattr(object.__getattribute__(self, k), key):
-                    return getattr(object.__getattribute__(self, k), key, *args, **kwargs)
-            
-            return None
+    # def __getattribute__(self, key, *args, **kwargs):
+    #     
+    #     try:
+    #         return object.__getattribute__(self, key, *args, **kwargs)
+    #     except:
+    #         
+    #         for k in ['request', 'response']:
+    #             if hasattr(object.__getattribute__(self, k), key):
+    #                 return getattr(object.__getattribute__(self, k), key, *args, **kwargs)
+    #         
+    #         return None
 
 
-def AsJSON(func):
-    def _AsJSON(self, *args, **kwargs):
-        self.asJSON()
+def settings(mimetype=None, charset=None, read_only=None, use_cache=None, status_code=None):
+    def _func(func):
+        def __func(self, *args, **kwargs):
+            if mimetype is not None:
+                self.setContentType(mimetype)
 
-        return func(self, *args, **kwargs)
-    return _AsJSON
+            if charset is not None:
+                self.response.charset = charset
 
-def AsString(func):
-    def _AsString(self, *args, **kwargs):
-        self.asString()
+            if read_only is not None:
+                self.read_only = read_only
 
-        return func(self, *args, **kwargs)
-    return _AsString
+            if use_cache is not None:
+                self.use_cache = use_cache
+
+            if status_code is not None:
+                self.response.status_code = status_code
+
+            return func(self, *args, **kwargs)
+        return __func
+    return _func

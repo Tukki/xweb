@@ -144,8 +144,8 @@ class XApplication:
 
         if not os.path.isdir(template_path):
             raise Exception('template_path %s not found' % template_path)
-
-    
+        
+        
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
         
         controller_module_path = "%s.controller" % sub_app_name
@@ -156,7 +156,7 @@ class XApplication:
                 app_module = __import__(controller_module_path)
                 self.controller_module = app_module.controller
             except:
-                raise Exception("Error in importing controller module, app startup failed")
+                raise 
             
         XWeb.app = self
             
@@ -234,12 +234,12 @@ class XApplication:
            
             unitofwork = controller_instance.unitofwork
             try:
-                controller_instance.beforeAction()       
-                action_method(**kwargs)
+                controller_instance.action = action
+                if controller_instance.beforeAction():
+                    action_method(**kwargs)
+                    controller_instance.commit()
+
                 controller_instance.afterAction()
-                
-                if not unitofwork.commit():
-                    raise Exception("commit error")
                 
                 context = controller_instance.context
                 content_type = controller_instance.content_type
@@ -248,8 +248,8 @@ class XApplication:
                 if status_code == 200:
                     if content_type == 'json':
                         controller_instance.response.data = context.get('json') or ''
-                    elif content_type == 'string':
-                        controller_instance.response.data = context.get('string') or ''
+                    elif content_type == 'text':
+                        pass
                     else:
                         
                         if hasattr(controller_instance, 'template') and controller_instance.template:
@@ -261,6 +261,8 @@ class XApplication:
                             controller_instance.response.data = controller_instance.render(action=action)
                         else:
                             controller_instance.response.data = self.render(template_name, context)
+                elif status_code in [301, 302]:
+                    pass
                 else:
                     return abort(status_code, context.get('description'))
             except Exception, ex:
@@ -278,24 +280,20 @@ class XApplication:
             return controller_instance.response
         
         return NotFound()
-    
     def render(self, template_name, context):
         '''
         @note: override
         '''
         t = self.jinja_env.get_template(template_name)
         return t.render(context)
-    
     def handleException(self, controller, action, ex):
         return BadRequest(ex)
-    
     def createApp(self):
         app = self.runApp
         app = SessionMiddleware(app, FilesystemSessionStore())
         #app = ProfilerMiddleware(app)
         
         return app
-    
     def runApp(self, environ, start_response):
         response = None
         try:
