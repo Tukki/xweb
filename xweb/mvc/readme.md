@@ -58,7 +58,10 @@ XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能
 
             def beforeAction(self):
                 if not self.secure_cookies.get('sid'):
-                    self.redirect( self.createUrl('login', next=self.request.referer) )
+                    if self.is_xhr:
+                        self.json = {'message':'error', 'reason':'no login'}
+                    else:
+                        self.redirect( self.createUrl('login', next=self.request.referer) )
                     return False
 
                 return True
