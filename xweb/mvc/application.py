@@ -4,8 +4,12 @@ import re
 import sys
 import inspect
 import logging
+import os
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple
+from werkzeug.contrib.sessions import SessionMiddleware, FilesystemSessionStore
+from werkzeug.contrib.lint import LintMiddleware
+from werkzeug.contrib.profiler import ProfilerMiddleware
 from werkzeug.exceptions import NotFound, HTTPException
 from jinja2.environment import Environment
 from jinja2.loaders import FileSystemLoader
@@ -17,8 +21,10 @@ from werkzeug.exceptions import BadRequest, abort
 
 
 re.compile("\(\?P<([^>]+)>\)")
-
 keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
+
+session_store = FilesystemSessionStore()
+
 
 class XRewriteRule:
     
@@ -114,19 +120,25 @@ class XRewriteRule:
             return url + "?" + "&".join(more)
         
 
+class XWeb:
+    app = None
+
 class XApplication:
     '''
     Application类
     '''
-    def __init__(self, app_name, base_path=''):
+    def __init__(self, sub_app_name, base_path=''):
+        
+        
         self.rewrite_rules = []
         self.loadConfig()
-        self.app_name = app_name
+
+        self.sub_app_name = sub_app_name
         self.use_debuger = False
         if base_path:
-            template_path = "%s/%s/templates" % (base_path, self.app_name)
+            template_path = "%s/%s/templates" % (base_path, self.sub_app_name)
         else:
-            template_path = "%s/templates" % (self.app_name)
+            template_path = "%s/templates" % (self.sub_app_name)
 
         logging.info('base_path %s template_path %s' , base_path, template_path)
 
@@ -136,7 +148,7 @@ class XApplication:
     
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
         
-        controller_module_path = "%s.controller" % app_name
+        controller_module_path = "%s.controller" % sub_app_name
         app_module = sys.modules.get(controller_module_path)
         
         if not app_module:
@@ -145,6 +157,8 @@ class XApplication:
                 self.controller_module = app_module.controller
             except:
                 raise Exception("Error in importing controller module, app startup failed")
+            
+        XWeb.app = self
             
     def rewrite(self, environ):
         
@@ -220,21 +234,21 @@ class XApplication:
            
             unitofwork = controller_instance.unitofwork
             try:
-                controller_instance.before()       
+                controller_instance.beforeAction()       
                 action_method(**kwargs)
-                controller_instance.after()
+                controller_instance.afterAction()
                 
                 if not unitofwork.commit():
                     raise Exception("commit error")
                 
                 context = controller_instance.context
-                response_type = context.get('type')
+                content_type = controller_instance.content_type
                 status_code = controller_instance.response.status_code
                 
                 if status_code == 200:
-                    if response_type == 'json':
+                    if content_type == 'json':
                         controller_instance.response.data = context.get('json') or ''
-                    elif response_type == 'string':
+                    elif content_type == 'string':
                         controller_instance.response.data = context.get('string') or ''
                     else:
                         
@@ -264,23 +278,36 @@ class XApplication:
             return controller_instance.response
         
         return NotFound()
+    
     def render(self, template_name, context):
+        '''
+        @note: override
+        '''
         t = self.jinja_env.get_template(template_name)
         return t.render(context)
+    
     def handleException(self, controller, action, ex):
         return BadRequest(ex)
+    
     def createApp(self):
-        return self.runApp
+        app = self.runApp
+        app = SessionMiddleware(app, FilesystemSessionStore())
+        #app = ProfilerMiddleware(app)
+        
+        return app
+    
     def runApp(self, environ, start_response):
         response = None
         try:
             request = self.rewrite(environ)
             response = self.process(request)
+            request.secure_cookies.save_cookie(response)
         except HTTPException, ex:
             response = ex
         
         if response:
             return response(environ, start_response)
+        
     def loadConfig(self):
         try:
             if not self.rewrite_rules:
@@ -290,7 +317,6 @@ class XApplication:
         except:
             pass
         
-        XConfig.App = self
         return self
         
     def buildRewrite(self, rules):
@@ -318,5 +344,5 @@ class XApplication:
         
     def runDebug(self):
         self.use_debuger = True
-        app = DebuggedApplication(self.runApp, evalex=True)
+        app = DebuggedApplication(self.createApp(), evalex=True)
         run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True)

@@ -11,6 +11,16 @@ class DefaultController(XController):
         self.echo("hehe")
         import time
         self.context['user'] = time.time()
+        self.response.set_cookie('gg', 'xx')
+        self.response.headers['Content-Type'] = 'text/xml; charset=utf-8'
+        self.response.headers['content-type'] = 'text/html; charset=gbk;'
+        
+        for i in range(1000):
+            self.secure_cookies[i] = i*i 
+
+        self.context['link'] = self.createUrl('default/long', {'short_id': 110000L})
+        
+        print dir(self.request)
        
     @AsString 
     def doHelp(self):

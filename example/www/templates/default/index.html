@@ -1,2 +1,15 @@
-sfdsfsf
-{{user}}
+<html>
+    <head>
+        <title>首页</title>
+    </head>
+    <body>
+        <h1>{{user}}:{{gg}}| {{request.secure_cookies.get('a')}}</h1>
+        
+        
+        
+        <form action="/" method="post" enctype="multipart/form-data">
+            <input type="text" name="aa" value="{{c}}" />
+            <input type="submit" value="提交" />
+        </form>
+    </body>
+</html>
