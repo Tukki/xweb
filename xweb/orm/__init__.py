@@ -1,5 +1,5 @@
+from entity import Entity, MultiIdEntity
 from unitofwork import UnitOfWork
-from entity import Entity
 import db
 import cache
 from idgenerator import IdGenerator

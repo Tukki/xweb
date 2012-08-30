@@ -9,7 +9,6 @@ Created on 2012-6-3
 import threading
 from xweb.config import XConfig
 from cache import CacheManager
-from db import ConnectionManager
 from idgenerator import IdGenerator
 import logging
 
@@ -28,6 +27,7 @@ class UnitOfWork:
     '''
     
     def __init__(self):
+        from db import ConnectionManager
         self.connection_manager = ConnectionManager(XConfig.get('db'))
         self.cache_manager = CacheManager(XConfig.get('cache'))
         self.entity_list = {}
@@ -52,7 +52,7 @@ class UnitOfWork:
         if self.entity_list.get(cls_name) is None:
             self.entity_list[cls_name] = {}
             
-        self.entity_list[cls_name][entity.id] = entity
+        self.entity_list[cls_name][str(entity.getId())] = entity
         entity._unitofwork = self
         
     def commit(self):
@@ -68,7 +68,7 @@ class UnitOfWork:
             entity_dict = self.entity_list.get(entity_class_name)
             
             for entity_id in entity_dict:
-                entity = entity_dict.get(id)
+                entity = entity_dict.get(entity_id)
                 
                 if entity.isLoadedFromCache():
                     raise ModifyBasedCacheError("%s(%s) is loaded from cache, so can't be modified!!"%(
@@ -117,7 +117,7 @@ class UnitOfWork:
         if self.entity_list.get(cls_name) is None:
             return None
         
-        return self.entity_list.get(cls_name).get(id)
+        return self.entity_list.get(cls_name).get(str(entity_id))
     
     def getAll(self, cls, entity_ids, **kwargs):
         
@@ -129,7 +129,7 @@ class UnitOfWork:
             for entity_id in entity_ids:
                 entity = self.getEntityInMem(cls, entity_id)
                 if not entity:
-                    not_found_ids.append(id)
+                    not_found_ids.append(entity_id)
                     
             keys = [self.makeKey(cls, entity_id) for entity_id in not_found_ids]
             
@@ -143,7 +143,7 @@ class UnitOfWork:
                 if entity:
                     self.register(entity)
                 else:
-                    query_db_ids.append(id)
+                    query_db_ids.append(entity_id)
         else:
             query_db_ids = entity_ids
         
@@ -168,11 +168,42 @@ class UnitOfWork:
         
         return self.getAll(cls, entity_ids, **kwargs)
     
+    def getAllByCond2(self, cls, condition=None, args=[], **kwargs):
+        
+        db_conn = cls.dbName(**kwargs)
+        connection = self.connection_manager.get(db_conn)
+        rows = connection.queryRowsByCond(cls, condition, args)
+        
+        results = []
+        
+        for row in rows:
+            
+            data = {}
+            
+            for k,v in zip(cls.allKeys(), row):
+                data[k] = v
+                
+            entity_id = tuple([data.get(k) for k in cls.primaryKey()])
+            
+            entity = self.getEntityInMem(cls, entity_id)
+            
+            if not entity:
+                entity = connection.createEntity(cls, row)
+                self.register(entity)
+                key = self.makeKey(cls, entity_id)
+                cache_name = cls.cacheName(key=key, entity_id=entity_id, **kwargs)
+                cache = self.cache_manager.get(cache_name)
+                cache.set(key, entity)
+                
+            results.append(entity)
+                
+        return results
+    
     
     def get(self, cls, entity_id, **kwargs): #@ReservedAssignment
         
         key = self.makeKey(cls, entity_id)
-        cache_name = cls.cacheName(id=id, **kwargs)
+        cache_name = cls.cacheName(entity_id=entity_id, **kwargs)
         cache = self.cache_manager.get(cache_name)
 
         if not self.disable_cache:
@@ -186,7 +217,7 @@ class UnitOfWork:
                 logging.debug("load entity %s from cache: %s"%(entity, cache_name))
                 return entity
         
-        db_conn = cls.dbName(id=id, **kwargs)
+        db_conn = cls.dbName(entity_id=entity_id, **kwargs)
         connection = self.connection_manager.get(db_conn)
         entity = connection.queryOne(cls, entity_id)
         

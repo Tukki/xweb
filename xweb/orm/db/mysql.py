@@ -10,6 +10,19 @@ from xweb.orm.entity import Entity
 from xweb.util import logging
 import time
 
+def generate_where_clause(primary_key, entity_id):
+    
+    if type(primary_key) == str:
+        where_clause = "`%s`=%%s" % primary_key
+        value = (entity_id, )
+    else:
+        where_clause = " AND ".join(['`%s`=%%s']*len(primary_key)) % primary_key
+        value = entity_id
+        
+    return where_clause, value
+        
+        
+
 class MySQLDBConnection(DBConnection):
     """
     MySQL实现
@@ -31,12 +44,27 @@ class MySQLDBConnection(DBConnection):
     def connect(self):
         return self._conn;
         
-    def queryOne(self, cls, id): #@ReservedAssignment
+    def queryOne(self, cls, entity_id):
         
-        sql = "select %s from `%s` where `%s`=%%s limit 1"%(",".join(cls.allKeys()),
-            cls.tableName(), cls.primaryKey())
+        primary_key = cls.primaryKey()
         
-        row = self.queryOneBySQL(sql, (id,))
+        if type(primary_key) == str:
+        
+            sql = "select %s from `%s` where `%s`=%%s limit 1"%(",".join(cls.allKeys()),
+                cls.tableName(), primary_key)
+            
+            value = (entity_id, )
+            
+        else:
+            
+            where_clause = " AND ".join(['`%s`=%%s']*len(primary_key)) % primary_key
+        
+            sql = "select %s from `%s` where %s limit 1"%(",".join(cls.allKeys()),
+                cls.tableName(), where_clause)
+            
+            value = entity_id
+            
+        row = self.queryOneBySQL(sql, value)
             
         if not row:
             return None
@@ -45,19 +73,47 @@ class MySQLDBConnection(DBConnection):
         for k, v in zip(cls.allKeys(), row):
             kwargs[k] = v
         
-        return self._createEntity(cls, row)
+        return self.createEntity(cls, row)
           
     def queryIds(self, cls, condition, args=[]):
+        
+        primary_key = cls.primaryKey()
+        
+        if type(primary_key) == str:
             
-        sql = "select %s from `%s` where %s"%(cls.primaryKey(),
+            sql = "select %s from `%s` where %s"%(primary_key,
+                cls.tableName(), condition or '1=1')
+            
+            row = self.queryAllBySQL(sql, tuple(args))
+            
+            if not row:
+                return []
+            
+            return [r[0] for r in row]
+        else:
+            
+            sql = "select %s from `%s` where %s"%( ",".join(primary_key),
+                cls.tableName(), condition or '1=1')
+            
+            rows = self.queryAllBySQL(sql, tuple(args))
+            
+            if not rows:
+                return []
+            
+            return rows
+        
+        
+    def queryRowsByCond(self, cls, condition, args=[]):
+        
+        sql = "select %s from `%s` where %s"%( ",".join(cls.allKeys()),
             cls.tableName(), condition or '1=1')
         
-        row = self.queryAllBySQL(sql, tuple(args))
+        rows = self.queryAllBySQL(sql, tuple(args))
         
-        if not row:
+        if not rows:
             return []
         
-        return [r[0] for r in row]
+        return rows
            
     def queryAll(self, cls, ids):
         
@@ -75,11 +131,11 @@ class MySQLDBConnection(DBConnection):
             cls.tableName(), cls.primaryKey(), ','.join(keys))
         
         rows = self.queryAllBySQL(sql, tuple(values))
-        
+
         if not rows:
             return []
         
-        return [self._createEntity(cls, row) for row in rows]
+        return [self.createEntity(cls, row) for row in rows]
     
     def insert(self, entity):
         if not isinstance(entity, Entity):
@@ -136,8 +192,11 @@ class MySQLDBConnection(DBConnection):
             
         sql += ",".join(keys)
         
-        sql += " WHERE `%s`=%%s"%entity.primaryKey()
-        values.append(getattr(entity, entity.primaryKey()))
+        primary_key = entity.primaryKey()
+        where_clause, where_value = generate_where_clause(primary_key, entity.getId())
+        
+        sql += " WHERE %s LIMIT 1" % where_clause
+        values.extend(where_value)
         
         return self._execute(sql, values)
     

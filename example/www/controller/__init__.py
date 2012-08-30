@@ -3,6 +3,8 @@ from xweb.config import XConfig
 from werkzeug.exceptions import NotFound, HTTPException #@UnresolvedImport
 from xweb.mvc.web import XResponse
 
+from domain import Video, StopTime
+
 
 class DefaultController(XController):
 
@@ -17,6 +19,15 @@ class DefaultController(XController):
             self.secure_cookies[i] = i*i 
 
         self.context['link'] = self.createUrl('default/long', short_id=110000L)
+        
+        s = StopTime.get(train_code='01000000Z202', station_no=1)
+        s.distance = 0
+        
+        video = Video.get(1000000100)
+        video.title = time.time()
+        video.category_id = 0
+        
+        self.context['stops'] = StopTime.getAllByCond('1=1 limit 10')
        
     def doHelp(self):
         self.echo("hello world")

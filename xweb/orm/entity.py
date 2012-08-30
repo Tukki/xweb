@@ -1,4 +1,5 @@
 #coding:utf8
+from unitofwork import UnitOfWork
 
 class Entity(object):
     '''
@@ -56,7 +57,6 @@ class Entity(object):
     # protected methods       
     def _getUnitOfWork(self):
         if not self._unitofwork:
-            from unitofwork import UnitOfWork
             self._unitofwork = UnitOfWork.inst()
         return self._unitofwork
         
@@ -89,14 +89,13 @@ class Entity(object):
             self._dirty_keys.add(k)
             
     def __str__(self):
-        return "%s(%s)"%(self.modelName(), self.getPrimaryKey())
-            
+        return "%s(%s)"%(self.modelName(), self.getId())
+    
     def getPrimaryKey(self):
+        return self.getId()
+        
+    def getId(self):
         primary_key = self.primaryKey()
-        
-        if not hasattr(self, primary_key):
-            raise Exception("primary key of %s is not set"%self.modelName())
-        
         return getattr(self, primary_key)
             
     def getBelongsToInfo(self, foreign_key):
@@ -111,8 +110,6 @@ class Entity(object):
             return fkey, fcls, fid
         
         return None, None, None
-        
-            
             
     def isNew(self):
         return self._is_new
@@ -153,7 +150,6 @@ class Entity(object):
         '''
         
         if not kwargs.get('use_autoincrement_id'):
-            from unitofwork import UnitOfWork
             primaryKey = cls.primaryKey()
             unitofwork = UnitOfWork.inst()
             if not kwargs.has_key(primaryKey):
@@ -208,10 +204,61 @@ class Entity(object):
     
     @classmethod
     def get(cls, id):
-        from unitofwork import UnitOfWork
         return UnitOfWork.inst().get(cls, id)
     
     @classmethod
-    def getAll(cls, condition, args=[]):
-        from unitofwork import UnitOfWork
+    def getAll(cls, entity_ids):
+        return UnitOfWork.inst().getAll(cls, entity_ids)
+    
+    @classmethod
+    def getAllByCond(cls, condition, *args):
         return UnitOfWork.inst().getAllByCond(cls, condition, args)
+    
+    
+class MultiIdEntity(Entity):
+    '''
+    多主键实体类
+    
+    @author: lifei
+    @since: v1.0
+    '''
+    _keys = []
+            
+    def __str__(self):
+        return "%s(%s)"%(self.modelName(), self.getId())
+            
+    def getId(self):
+        primary_key = self.primaryKey()
+        return tuple([getattr(self, k) for k in primary_key])
+        
+    #==== class method ====
+    @classmethod
+    def createByBiz(cls, **kwargs):
+        '''
+        创建实体并自己注册到工作单元内
+        @param cls: 实体类型
+        '''
+        
+        unitofwork = UnitOfWork.inst()    
+        entity = cls(**kwargs)
+        unitofwork.register(entity)
+        return entity
+        
+    @classmethod
+    def allKeys(cls):
+        if not hasattr(cls, '_all_keys'):
+            cls._all_keys = list(cls._primary_key)
+            cls._all_keys.extend(cls._keys)
+        return cls._all_keys
+    
+    @classmethod
+    def get(cls, **kwargs):
+        return UnitOfWork.inst().get(cls, tuple([kwargs.get(key) for key in cls._primary_key]))
+    
+    @classmethod
+    def getAll(cls, entity_ids):
+        raise Exception("MultiIdEntity DOES NOT SUPPORT getAll")
+    
+    @classmethod
+    def getAllByCond(cls, condition, *args, **kwargs):
+        return UnitOfWork.inst().getAllByCond2(cls, condition, args, **kwargs)

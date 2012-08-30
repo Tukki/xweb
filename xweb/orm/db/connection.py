@@ -25,7 +25,7 @@ class DBConnection:
             
         self._db = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",charset="utf8")
     
-    def _createEntity(self, cls, row):
+    def createEntity(self, cls, row):
         kwargs = {}
         for k, v in zip(cls.allKeys(), row):
             kwargs[k] = v

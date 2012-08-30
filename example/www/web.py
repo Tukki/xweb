@@ -33,7 +33,7 @@ config = {
             'user': 'root',
             'passwd': '',
             'host': '127.0.0.1',
-            'db': 'test',
+            'db': 'app_video360',
             'charset': 'utf8'
         }
     },
