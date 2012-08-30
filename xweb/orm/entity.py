@@ -80,10 +80,14 @@ class Entity(object):
         cls = self.__class__
         if cls._types.has_key(k):
             _format = cls._types.get(k)
-            self.__dict__[k] = _format(value)
+            format_value = _format(value)
         else:
-            self.__dict__[k] = value
+            format_value = value
             
+        if format_value == self.__dict__.get(k):
+            return
+        
+        self.__dict__[k] = format_value
         if k in cls._keys:
             self._is_dirty = True
             self._dirty_keys.add(k)

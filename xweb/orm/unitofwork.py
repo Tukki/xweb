@@ -112,7 +112,7 @@ class UnitOfWork:
             self.entity_list.clear()
                     
         
-    def getEntityInMem(self, cls, entity_id): #@ReservedAssignment
+    def getEntityInMemory(self, cls, entity_id): #@ReservedAssignment
         cls_name = cls.__name__
         if self.entity_list.get(cls_name) is None:
             return None
@@ -127,7 +127,7 @@ class UnitOfWork:
         if not self.disable_cache:
             not_found_ids = []
             for entity_id in entity_ids:
-                entity = self.getEntityInMem(cls, entity_id)
+                entity = self.getEntityInMemory(cls, entity_id)
                 if not entity:
                     not_found_ids.append(entity_id)
                     
@@ -158,7 +158,7 @@ class UnitOfWork:
             self.register(entity)
             entity.setProps('list_first', first_entity.id)
             
-        return [self.getEntityInMem(cls, entity_id) for entity_id in entity_ids]
+        return [self.getEntityInMemory(cls, entity_id) for entity_id in entity_ids]
     
     def getAllByCond(self, cls, condition=None, args=[], **kwargs):
         
@@ -185,7 +185,7 @@ class UnitOfWork:
                 
             entity_id = tuple([data.get(k) for k in cls.primaryKey()])
             
-            entity = self.getEntityInMem(cls, entity_id)
+            entity = self.getEntityInMemory(cls, entity_id)
             
             if not entity:
                 entity = connection.createEntity(cls, row)
@@ -207,7 +207,7 @@ class UnitOfWork:
         cache = self.cache_manager.get(cache_name)
 
         if not self.disable_cache:
-            entity = self.getEntityInMem(cls, entity_id)
+            entity = self.getEntityInMemory(cls, entity_id)
             if entity:
                 return entity
             
@@ -244,7 +244,7 @@ class UnitOfWork:
         if  not first_id:
             return self.get(cls, fid)
 
-        model = self.getEntityInMem(cls, fid)
+        model = self.getEntityInMemory(cls, fid)
         
         if model:
             return model
@@ -252,7 +252,7 @@ class UnitOfWork:
         if first_id == fid:
             list_ids = entity.getProps('list_ids', [])
         else:
-            model = self.getEntityInMem(cls, first_id)
+            model = self.getEntityInMemory(cls, first_id)
             if not model:
                 return self.get(cls, fid)
             
@@ -260,7 +260,7 @@ class UnitOfWork:
         
         fids = set()
         for list_id in list_ids:
-            model = self.getEntityInMem(cls, list_id)
+            model = self.getEntityInMemory(cls, list_id)
             if not model:
                 continue
             fid = getattr(model, fkey)
@@ -269,7 +269,7 @@ class UnitOfWork:
         if fids:
             self.getAll(cls, fids)
             logging.debug("preload %s in (%s)"%(cls.modelName(), ",".join(fids)))
-            return self.getEntityInMem(cls, fid)
+            return self.getEntityInMemory(cls, fid)
         
         return self.get(cls, fid)
         
