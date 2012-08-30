@@ -188,19 +188,19 @@ class XApplication:
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
                 if not hasattr(self.controller_module, controller_class_name):
-                    return BadRequest('Controller NOT FOUND')
+                    return BadRequest('CONTROLLER NOT FOUND')
                     
                 controller_class = getattr(self.controller_module, controller_class_name)
 
                 controller_instance = controller_class(request, self)
                 
                 if not isinstance(controller_instance, XController):
-                    return BadRequest('Controller Type Error')
+                    return BadRequest('CONTROLLER ERROR')
 
                 action_method_name = 'do%s'%action.title()
                 
                 if not hasattr(controller_instance, action_method_name):
-                    return BadRequest('Method NOT FOUND')
+                    return BadRequest('METHOD NOT FOUND')
                 
                 action_method = getattr(controller_instance, action_method_name)
                 if not callable(action_method):
@@ -224,15 +224,14 @@ class XApplication:
                         else:
                             kwargs[func_arg] = request.args.get(func_args)
                     
-            except ImportError, AttributeError: #@ReservedAssignment
+            except (ImportError, AttributeError), ex: #@ReservedAssignment
                 logging.exception("Can't find the method to process")
-                return BadRequest('%s is not callable', action_method_name)
+                return BadRequest('SEARCH METHOD ERROR: %s', ex)
                 
             except Exception as ex:
                 logging.exception(ex)
                 return self.handleException(controller=controller, action=action, ex=ex)             
            
-            unitofwork = controller_instance.unitofwork
             try:
                 controller_instance.action = action
                 if controller_instance.beforeAction():
@@ -328,7 +327,7 @@ class XApplication:
             XRewriteRule('/<c>/<a>/',          {}),
         ])
         
-    def createUrl(self, route, params):
+    def createUrl(self, route, **params):
         for rule in self.rewrite_rules:
             url = rule.createUrl(route, params)
             

@@ -6,6 +6,7 @@
 
 from xweb.orm import UnitOfWork
 from xweb.mvc.web import XResponse
+from werkzeug.utils import cached_property
 
 content_type_map = {
     'json': 'application/json',
@@ -38,8 +39,15 @@ class XController(object):
         self.secure_cookies = self.request.secure_cookies
         self.context        = self.request.context
         self.json           = {}
-        self.text           = self.response.data
         self.action         = 'index'
+        
+    def getdata(self):
+        return self.response.data
+    
+    def setdata(self, text):
+        self.response.data = text
+        
+    data = property(getdata, setdata, None, "输出的data")
 
     def commit(self):
         return not self.read_only and self.unitofwork.commit()
@@ -51,7 +59,7 @@ class XController(object):
         pass
         
     def echo(self, text):
-        self.text += str(text)
+        self.data += str(text)
         
     def setContentType(self, content_type):
         self.content_type = content_type

@@ -16,9 +16,7 @@ class DefaultController(XController):
         for i in range(1000):
             self.secure_cookies[i] = i*i 
 
-        self.context['link'] = self.createUrl('default/long', {'short_id': 110000L})
-        
-        print dir(self.request)
+        self.context['link'] = self.createUrl('default/long', short_id=110000L)
        
     def doHelp(self):
         self.echo("hello world")
@@ -26,9 +24,7 @@ class DefaultController(XController):
         
     @settings(mimetype='text')
     def doShort(self):
-        print dir(self.request)
-        self.echo(self.request.get('short_id'))
-        self.echo(XConfig.App.createUrl('default/long', {'short_id':110000L}))
+        self.echo(self.createUrl('default/short', short_id=110000L))
         
     @settings(status_code=500)
     def handleException(self, **kwargs):
