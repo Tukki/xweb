@@ -35,6 +35,7 @@ class XController(object):
         # for short
         self.createUrl      = self.app.createUrl
         self.headers        = self.response.headers
+        self.mimetype       = self.response.mimetype
         self.setCookies     = self.response.set_cookie
         self.secure_cookies = self.request.secure_cookies
         self.context        = self.request.context

@@ -19,7 +19,6 @@ from web import XRequest
 from xweb.config import XConfig
 from werkzeug.exceptions import BadRequest, abort
 
-
 re.compile("\(\?P<([^>]+)>\)")
 keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
 

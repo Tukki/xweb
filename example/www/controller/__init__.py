@@ -24,7 +24,8 @@ class DefaultController(XController):
         
     @settings(mimetype='text')
     def doShort(self):
-        self.echo(self.createUrl('default/short', short_id=110000L))
+        self.echo("<a href=%s>hehe</a>" % self.createUrl('default/short', short_id=110000L))
+        self.mimetype = 'text/xhtml'
         
     @settings(status_code=500)
     def handleException(self, **kwargs):

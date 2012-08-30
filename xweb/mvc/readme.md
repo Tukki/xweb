@@ -1,8 +1,9 @@
 # XWEB框架 MVC模块
 
-lifei <lifei@7v1.net>
+李 飞 <lifei@7v1.net>
 
-v1.0 2012-06-08
+v1.0 2012-06-08 创建
+v1.1 2012-08-30 增加了设计原则
 
 ## 设计原则
 
@@ -49,8 +50,9 @@ XWEB框架中提到的请求的属性不随请求而变的，Response的属性�
 
 ### 继承是代码复用的最好方式之一
 
-XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能，例如，我们需要一个登陆验证，
-我们只需要将验证逻辑覆写到beforeAction方法即可。
+XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能，因为，在XWEB框架中，废弃了拦截器和中间件的相关设计
+
+如果，我们需要一个登陆验证，我们只需要将验证逻辑覆写到beforeAction方法即可。
 
 * 代码: admin.py
 
@@ -80,105 +82,45 @@ XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能
         AdminController(XController):
 
             def handleException(self,**kwargs):
-                
                 self.setStatusCode('200')
-                self.text = self.app.render('error/index.html', {})
+                self.data = self.app.render('error/index.html', {})
 
 
-## 使用说明
+###App的结构
 
-### 配置文件
+在一个项目中，有一些代码是需要所有的子项目都需要的，例如：领域实体、Service等，有些东西又是子项目特有的，例如：模板、Controller。
 
-* 代码: settings.py
+在XWEB框架中，子项目被称之为App，每个子项目都会有一个XApplication的类（或子类）的实例。
 
-        db = {
-            'default': {
-                'host': '127.0.0.1',
-                'user': 'root',
-                  'db': 'xweb',
-             'charset': 'utf-8'
-            },
-            'userdb':  {
-                'host': '127.0.0.1',
-                'user': 'root',
-                  'db': 'userdb',
-             'charset': 'utf-8'
-            },
-        }
-        cache = {
-            'default: {
-                'host': '127.0.0.1',
-                'port': 12580
-            }
-        }
+####每个App启动一个wsgi
+
+如果是每个子项目启动一个uwsgi，则入口代码可以写成：
+
+* 代码: __init__.py
+
+        www_app = XApplication('www',  'www')
         
-        
-* 代码：domain.py
-
-        class User(Entity):
-        
-            _keys = ['name', 'city_id']
-            _belongs_to = {'city': ('city_id', City)}
+        if __name__ == '__main__':
+            www_app.run()
             
+####多个App共用一个wsgi
+
+如果是多个子项目共用一个uwsgi，则入口代码可以写成：
+
+* 代码: __init__.py
+
+        from xweb.util import SubDomainDispatcherMiddleware
+        
+        www_app = XApplication('www',  'www').createApp()
+        admin_app = XApplication('admin',  'admin').createApp()
+        user_app = XApplication('user',  'user').createApp()
+        
+        main_app = SubDomainDispatcherMiddleware(www_app, {
+                'admin.example.com':    admin_app,
+                'user.example.com':     user_app,
+            })
+        
+        if __name__ == '__main__':
+            run_simple(’127.0.0.1’, 5000, app, use_debugger=True, use_reloader=True)
+
             
-        class City(Entity):
-            
-            _keys = ['name']
-    
-* 代码：console.py
-    
-        from settings import db, cache
-        
-        config = {
-            'db':db,
-            'cache':cache
-        }
-        
-        XConfig.load(config)
-        
-        user = User.get(1)
-        user.name = 'lifei'
-        
-        users = User.getMulti('city_id=%s', (10010,))
-        
-        for user in users:
-            print user.city.name
-        
-        UnitOfWork.inst().commit()
-
-
-## LazyLoad的1+N转化为1+1的巧妙设计
-之前，我们经常会对orm的belongto的设计为LazyLoad，以减少join的次数，但是LazyLoad对于
-某些业务场景会有性能的问题，如：
-
-    users = User.getMulti([1,2,3,4,5,6])
-    
-    for user in users:
-        print user.city.name
-        
-每一次循环都会进行一次数据库查询。一般的解决方案是Eager Load，上面的代码会被更改为：
-
-    users = User.with('city').getMulti([1,2,3,4,5])
-
-即：查询列表的时候，就告诉orm说我想把city的数据一起取回来，于是系统会根据参数的设置
-将相对应的city数据使用Join语句一同取回来，实现了1+N到1的过程。
-
-xweb框架由于使用了UnitOfWork技术，因此对实体的管理就会更加方便、灵活。基于此，我们
-设计出一种自动的Eager Load的技术，简单可以理解为如下：
-
-    users = User.getMulti([1,2,3,4,5,6])
-    city_ids = [user.id for user in users]
-    citys = City.getMulti(city_ids)
-    
-    for user, city in zip(users, citys):
-        print user.city.name
-        
-这样的话，通过两次列表查询将所有的数据取出，由1+N转化为1+1。
-但是我们的业务代码却远比上面优雅，事实上，它与之前的代码没有任何差别：
-
-    users = User.getMulti([1,2,3,4,5,6])
-    
-    for user in users:
-        print user.city.name
-
-一切的功能都是由框架自动完成的，不需要程序员去指定Eager Load的字段

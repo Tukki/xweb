@@ -67,7 +67,7 @@ class UnitOfWork:
         for entity_class_name in self.entity_list:
             entity_dict = self.entity_list.get(entity_class_name)
             
-            for id in entity_dict:
+            for entity_id in entity_dict:
                 entity = entity_dict.get(id)
                 
                 if entity.isLoadedFromCache():
@@ -112,40 +112,40 @@ class UnitOfWork:
             self.entity_list.clear()
                     
         
-    def getEntityInMem(self, cls, id): #@ReservedAssignment
+    def getEntityInMem(self, cls, entity_id): #@ReservedAssignment
         cls_name = cls.__name__
         if self.entity_list.get(cls_name) is None:
             return None
         
         return self.entity_list.get(cls_name).get(id)
     
-    def getAll(self, cls, ids, **kwargs):
+    def getAll(self, cls, entity_ids, **kwargs):
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
         query_db_ids = []
         if not self.disable_cache:
             not_found_ids = []
-            for id in ids:
-                entity = self.getEntityInMem(cls, id)
+            for entity_id in entity_ids:
+                entity = self.getEntityInMem(cls, entity_id)
                 if not entity:
                     not_found_ids.append(id)
                     
-            keys = [self.makeKey(cls, id) for id in not_found_ids]
+            keys = [self.makeKey(cls, entity_id) for entity_id in not_found_ids]
             
             cache_name = cls.cacheName(**kwargs)
             cache = self.cache_manager.get(cache_name)
             
             entitys = cache.getAll(keys)
-            id_and_keys = zip(not_found_ids, keys)
-            for id, key in id_and_keys:
+            entity_id_and_keys = zip(not_found_ids, keys)
+            for entity_id, key in entity_id_and_keys:
                 entity = entitys.get(key)
                 if entity:
                     self.register(entity)
                 else:
                     query_db_ids.append(id)
         else:
-            query_db_ids = ids
+            query_db_ids = entity_ids
         
         entitys = connection.queryAll(cls, query_db_ids)
 
@@ -153,30 +153,30 @@ class UnitOfWork:
             return []
         
         first_entity = entitys[0]
-        first_entity.setProps('list_ids', ids)
+        first_entity.setProps('list_ids', entity_ids)
         for entity in entitys:
             self.register(entity)
             entity.setProps('list_first', first_entity.id)
             
-        return [self.getEntityInMem(cls, id) for id in ids]
+        return [self.getEntityInMem(cls, entity_id) for entity_id in entity_ids]
     
     def getAllByCond(self, cls, condition=None, args=[], **kwargs):
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
-        ids = connection.queryIds(cls, condition, args)
+        entity_ids = connection.queryIds(cls, condition, args)
         
-        return self.getAll(cls, ids, **kwargs)
+        return self.getAll(cls, entity_ids, **kwargs)
     
     
-    def get(self, cls, id, **kwargs): #@ReservedAssignment
+    def get(self, cls, entity_id, **kwargs): #@ReservedAssignment
         
-        key = self.makeKey(cls, id)
+        key = self.makeKey(cls, entity_id)
         cache_name = cls.cacheName(id=id, **kwargs)
         cache = self.cache_manager.get(cache_name)
 
         if not self.disable_cache:
-            entity = self.getEntityInMem(cls, id)
+            entity = self.getEntityInMem(cls, entity_id)
             if entity:
                 return entity
             
@@ -188,7 +188,7 @@ class UnitOfWork:
         
         db_conn = cls.dbName(id=id, **kwargs)
         connection = self.connection_manager.get(db_conn)
-        entity = connection.queryOne(cls, id)
+        entity = connection.queryOne(cls, entity_id)
         
         if entity is None:
             return None
@@ -277,9 +277,9 @@ class UnitOfWork:
         
         return False
         
-    def makeKey(self, cls, id):
+    def makeKey(self, cls, entity_id):
         return "%s:%s:%s:%s"%(XConfig.get('app_name'),
-                              cls.__name__, id, cls._version)
+                              cls.__name__, entity_id, cls._version)
         
     def close(self):
         self.connection_manager.close()
