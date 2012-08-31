@@ -7,6 +7,16 @@ class Category(Entity):
     '''
     
     _keys = ['name']
+    
+    
+class StopTime(MultiIdEntity):
+    
+    _table_name = 'basic_stoptimes'
+    
+    _primary_key = ('train_code', 'station_no')
+    
+    _keys = ['train_name', 'train_code', 'station_no', 'station_name', 'arrive_time',
+             'start_time', 'cost_time', 'cost_day', 'distance']
 
 class Video(Entity):
     
@@ -18,15 +28,6 @@ class Video(Entity):
     
     _default_values = {'digg_count': 0, 'bury_count': 0, 'comment_count': 0}
     
-    _belongs_to = {'category': ('category_id', Category)}
-    
-    
-class StopTime(MultiIdEntity):
-    
-    _table_name = 'basic_stoptimes'
-    
-    _primary_key = ('train_code', 'station_no')
-    
-    _keys = ['train_name', 'train_code', 'station_no', 'station_name', 'arrive_time',
-             'start_time', 'cost_time', 'cost_day', 'distance']
+    _belongs_to = {'category': ('category_id', Category),
+        'stoptime': (('title', 'digg_count'), StopTime)}
     

@@ -6,7 +6,6 @@
 
 from xweb.orm import UnitOfWork
 from xweb.mvc.web import XResponse
-from werkzeug.utils import cached_property
 
 content_type_map = {
     'json': 'application/json',
@@ -84,18 +83,6 @@ class XController(object):
 
         if self.content_type not in ['json', 'text']:
             self.content_type = 'text'
-        
-    # def __getattribute__(self, key, *args, **kwargs):
-    #     
-    #     try:
-    #         return object.__getattribute__(self, key, *args, **kwargs)
-    #     except:
-    #         
-    #         for k in ['request', 'response']:
-    #             if hasattr(object.__getattribute__(self, k), key):
-    #                 return getattr(object.__getattribute__(self, k), key, *args, **kwargs)
-    #         
-    #         return None
 
 
 def settings(mimetype=None, charset=None, read_only=None, use_cache=None, status_code=None):

@@ -4,7 +4,7 @@ Created on 2012-7-5
 
 @author: lifei
 '''
-import MySQLdb #@UnresolvedImport
+import MySQLdb
 from connection import DBConnection
 from xweb.orm.entity import Entity
 from xweb.util import logging
@@ -16,7 +16,7 @@ def generate_where_clause(primary_key, entity_id):
         where_clause = "`%s`=%%s" % primary_key
         value = (entity_id, )
     else:
-        where_clause = " AND ".join(['`%s`=%%s']*len(primary_key)) % primary_key
+        where_clause = " AND ".join(["`%s`=%%s"]*len(primary_key)) % primary_key
         value = entity_id
         
     return where_clause, value
@@ -44,7 +44,7 @@ class MySQLDBConnection(DBConnection):
     def connect(self):
         return self._conn;
         
-    def queryOne(self, cls, entity_id):
+    def getEntity(self, cls, entity_id):
         
         primary_key = cls.primaryKey()
         
@@ -57,14 +57,12 @@ class MySQLDBConnection(DBConnection):
             
         else:
             
-            where_clause = " AND ".join(['`%s`=%%s']*len(primary_key)) % primary_key
+            where_clause, value = generate_where_clause(primary_key, entity_id)
         
             sql = "select %s from `%s` where %s limit 1"%(",".join(cls.allKeys()),
                 cls.tableName(), where_clause)
             
-            value = entity_id
-            
-        row = self.queryOneBySQL(sql, value)
+        row = self.fetchRow(sql, *value)
             
         if not row:
             return None
@@ -75,7 +73,7 @@ class MySQLDBConnection(DBConnection):
         
         return self.createEntity(cls, row)
           
-    def queryIds(self, cls, condition, args=[]):
+    def fetchEntityIds(self, cls, condition, args=[]):
         
         primary_key = cls.primaryKey()
         
@@ -84,18 +82,21 @@ class MySQLDBConnection(DBConnection):
             sql = "select %s from `%s` where %s"%(primary_key,
                 cls.tableName(), condition or '1=1')
             
-            row = self.queryAllBySQL(sql, tuple(args))
+            args = tuple(args)
+            rows = self.fetchRows(sql, *args)
             
-            if not row:
+            if not rows:
                 return []
             
-            return [r[0] for r in row]
+            return [r[0] for r in rows]
         else:
             
             sql = "select %s from `%s` where %s"%( ",".join(primary_key),
                 cls.tableName(), condition or '1=1')
             
-            rows = self.queryAllBySQL(sql, tuple(args))
+        
+            args = tuple(args)
+            rows = self.fetchRows(sql, *args)
             
             if not rows:
                 return []
@@ -105,17 +106,18 @@ class MySQLDBConnection(DBConnection):
         
     def queryRowsByCond(self, cls, condition, args=[]):
         
-        sql = "select %s from `%s` where %s"%( ",".join(cls.allKeys()),
+        sql = "select `%s` from `%s` where %s"%( "`,`".join(cls.allKeys()),
             cls.tableName(), condition or '1=1')
         
-        rows = self.queryAllBySQL(sql, tuple(args))
+        args = tuple(args)
+        rows = self.fetchRows(sql, *args)
         
         if not rows:
             return []
         
         return rows
            
-    def queryAll(self, cls, ids):
+    def getEntityList(self, cls, ids):
         
         if not ids:
             return []
@@ -130,7 +132,8 @@ class MySQLDBConnection(DBConnection):
         sql = "select %s from `%s` where `%s` in(%s)"%(",".join(cls.allKeys()),
             cls.tableName(), cls.primaryKey(), ','.join(keys))
         
-        rows = self.queryAllBySQL(sql, tuple(values))
+        args = tuple(values)
+        rows = self.fetchRows(sql, *args)
 
         if not rows:
             return []
@@ -163,7 +166,7 @@ class MySQLDBConnection(DBConnection):
         sql += ",".join(place_holder)
         sql += ')'
         
-        return self._execute(sql, values)
+        return self.execute(sql, values)
         
     
     def update(self, entity):
@@ -198,7 +201,7 @@ class MySQLDBConnection(DBConnection):
         sql += " WHERE %s LIMIT 1" % where_clause
         values.extend(where_value)
         
-        return self._execute(sql, values)
+        return self.execute(sql, values)
     
     def close(self):
         self._conn.close()

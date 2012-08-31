@@ -19,7 +19,7 @@ class ConnectionManager:
         self.conf = conf
         self.connections = {}
         
-    def get(self, name, read_only=True):
+    def get(self, name='default', read_only=True):
         
         if not read_only:
             db_name = "%s_write" % name

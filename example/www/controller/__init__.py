@@ -10,7 +10,29 @@ class DefaultController(XController):
 
     @settings(mimetype='xml')
     def doIndex(self):
+        
+        print UnitOfWork.inst().connection_manager.get().fetchRow('''
+        SELECT train_code,station_no,train_name,train_code,station_no,station_name,arrive_time,start_time,cost_time,cost_day,distance 
+FROM `basic_stoptimes` 
+WHERE `train_code`='01000000Z202' AND `station_no`=1 LIMIT 1;
+        ''')
+        print UnitOfWork.inst().connection_manager.get().fetchRow('''
+        SELECT train_code,station_no,train_name,train_code,station_no,station_name,arrive_time,start_time,cost_time,cost_day,distance 
+FROM `basic_stoptimes` 
+WHERE `train_code`=%s AND `station_no`=1 LIMIT 1;
+        ''', '01000000Z202')
+        
+        
+        import time
+        
+        self.context['stops'] = StopTime.getListByCond('1=1 limit 10')
+        
+        video = Video.getListByCond()[0]
+        video.title = time.time()
+        print video.stoptime
+        
 
+        '''
         self.echo("hehe")
         import time
         self.context['user'] = time.time()
@@ -23,11 +45,13 @@ class DefaultController(XController):
         s = StopTime.get(train_code='01000000Z202', station_no=1)
         s.distance = 0
         
-        video = Video.get(1000000100)
+        video = Video.getListByCond()[0]
         video.title = time.time()
-        video.category_id = 0
+        print video.category
+        print video.stoptime
         
-        self.context['stops'] = StopTime.getAllByCond('1=1 limit 10')
+        self.context['stops'] = StopTime.getListByCond('1=1 limit 10')
+        '''
        
     def doHelp(self):
         self.echo("hello world")

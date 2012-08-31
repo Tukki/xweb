@@ -1,5 +1,6 @@
 #coding:utf8
 from unitofwork import UnitOfWork
+from xweb.util import logging
 
 class Entity(object):
     '''
@@ -67,7 +68,7 @@ class Entity(object):
         _belongs_to = cls._belongs_to
         
         if _belongs_to.has_key(key):
-            return self._getUnitOfWork().getBelongsToEntity(self, key)
+            return self.__getBelongsToEntity(key)
         
         if hasattr(self, key):
             return super(Entity, self).__getattribute__(key)
@@ -75,6 +76,56 @@ class Entity(object):
             return cls._default_values.get(key)
         
         return None
+    
+    def __getBelongsToEntity(self, foreign_key):
+        '''
+        '''
+        
+        foreign_primary_key, foreign_class, foreign_id = self.getBelongsToInfo(foreign_key)
+        unitofwork = self._getUnitOfWork()
+        
+        if not foreign_id:
+            return None
+        
+        if self.disable_preload:
+            return unitofwork.get(foreign_class, foreign_id)
+
+        foreign_entity = unitofwork.getEntityInMemory(foreign_class, foreign_id)
+        if foreign_entity:
+            return foreign_entity
+        
+        # 多主键的实体禁用preload功能
+        if type(foreign_primary_key) != str:
+            return unitofwork.get(foreign_class, foreign_id)
+        
+        first_entity_id = self.getProps('first_entity_in_query', None)
+        if  not first_entity_id:
+            return unitofwork.get(foreign_class, foreign_id)
+        
+        if first_entity_id == self.getId():
+            entity_ids_in_query = self.getProps('entity_ids_in_query', [])
+        else:
+            first_entity = unitofwork.getEntityInMemory(type(self), first_entity_id)
+            if not first_entity:
+                return unitofwork.get(foreign_class, foreign_id)
+            entity_ids_in_query = first_entity.getPrpos('entity_ids_in_query', [])
+            
+        foreign_entity_ids = set()
+        for current_entity_id in entity_ids_in_query:
+
+            entity_in_query = unitofwork.getEntityInMemory(type(self), current_entity_id)
+            if not entity_in_query:
+                continue
+            
+            foreign_entity_id = getattr(entity_in_query, foreign_primary_key)
+            foreign_entity_ids.add(foreign_entity_id)
+            
+        if foreign_entity_ids:
+            foreign_entitys = unitofwork.getList(foreign_class, foreign_entity_ids)
+            logging.debug("preload %s in %s" % (foreign_class.modelName(), str([foreign_entity.getId() for foreign_entity in foreign_entitys])))
+            return unitofwork.getEntityInMemory(foreign_class, foreign_id)
+        
+        return unitofwork.get(foreign_class, foreign_id)
     
     def __setattr__(self, k, value):
         cls = self.__class__
@@ -108,10 +159,14 @@ class Entity(object):
         _belongs_to = cls._belongs_to
         
         if _belongs_to.has_key(foreign_key):
-            (fkey, fcls) = _belongs_to.get(foreign_key)
-            fid =  super(Entity, self).__getattribute__(fkey)
+            (foreign_primary_key, foreign_class) = _belongs_to.get(foreign_key)
             
-            return fkey, fcls, fid
+            if type(foreign_primary_key) == tuple:
+                foreign_value = tuple([ object.__getattribute__(self, key)  for key in foreign_primary_key])
+            else:
+                foreign_value = object.__getattribute__(self, foreign_primary_key)
+                
+            return foreign_primary_key, foreign_class, foreign_value
         
         return None, None, None
             
@@ -211,12 +266,12 @@ class Entity(object):
         return UnitOfWork.inst().get(cls, id)
     
     @classmethod
-    def getAll(cls, entity_ids):
-        return UnitOfWork.inst().getAll(cls, entity_ids)
+    def getList(cls, entity_ids):
+        return UnitOfWork.inst().getList(cls, entity_ids)
     
     @classmethod
-    def getAllByCond(cls, condition, *args):
-        return UnitOfWork.inst().getAllByCond(cls, condition, args)
+    def getListByCond(cls, condition='', *args):
+        return UnitOfWork.inst().getListByCond(cls, condition, args)
     
     
 class MultiIdEntity(Entity):
@@ -260,9 +315,9 @@ class MultiIdEntity(Entity):
         return UnitOfWork.inst().get(cls, tuple([kwargs.get(key) for key in cls._primary_key]))
     
     @classmethod
-    def getAll(cls, entity_ids):
-        raise Exception("MultiIdEntity DOES NOT SUPPORT getAll")
+    def getList(cls, entity_ids):
+        raise Exception("MultiIdEntity DOES NOT SUPPORT getList")
     
     @classmethod
-    def getAllByCond(cls, condition, *args, **kwargs):
-        return UnitOfWork.inst().getAllByCond2(cls, condition, args, **kwargs)
+    def getListByCond(cls, condition, *args, **kwargs):
+        return UnitOfWork.inst().getListByCond2(cls, condition, args, **kwargs)

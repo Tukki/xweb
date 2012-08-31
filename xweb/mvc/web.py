@@ -4,9 +4,7 @@
 @author: lifei
 '''
 from werkzeug import Request, Response
-from werkzeug.formparser import parse_form_data
 from werkzeug.utils import cached_property
-from werkzeug.wrappers import BaseRequest
 from werkzeug.contrib.securecookie import SecureCookie
 from xweb.config import XConfig
 

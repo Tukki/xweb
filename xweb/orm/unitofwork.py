@@ -31,8 +31,8 @@ class UnitOfWork:
         self.connection_manager = ConnectionManager(XConfig.get('db'))
         self.cache_manager = CacheManager(XConfig.get('cache'))
         self.entity_list = {}
-        self.disable_cache = False
-        self.disable_preload = False
+        self.use_cache = True
+        self.use_preload = True
         
     def idgenerator(self):
         
@@ -99,6 +99,23 @@ class UnitOfWork:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
                     connection.connect().commit()
+            
+            for entity in deletes:
+                try:
+                    cache = self.cache_manager.get(entity._cache)
+                    cache_key = self.makeKey(entity.__class__, entity.id)
+                    cache.delete(cache_key)
+                except:
+                    pass
+                
+            for entitys in [updates, news]:
+                for entity in entitys:
+                    try:
+                        cache = self.cache_manager.get(entity._cache)
+                        cache_key = self.makeKey(entity.__class__, entity.id)
+                        cache.set(cache_key, entity)
+                    except:
+                        pass
                     
             return True
         except:
@@ -119,12 +136,12 @@ class UnitOfWork:
         
         return self.entity_list.get(cls_name).get(str(entity_id))
     
-    def getAll(self, cls, entity_ids, **kwargs):
+    def getList(self, cls, entity_ids, **kwargs):
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
         query_db_ids = []
-        if not self.disable_cache:
+        if self.use_cache:
             not_found_ids = []
             for entity_id in entity_ids:
                 entity = self.getEntityInMemory(cls, entity_id)
@@ -136,7 +153,7 @@ class UnitOfWork:
             cache_name = cls.cacheName(**kwargs)
             cache = self.cache_manager.get(cache_name)
             
-            entitys = cache.getAll(keys)
+            entitys = cache.getList(keys)
             entity_id_and_keys = zip(not_found_ids, keys)
             for entity_id, key in entity_id_and_keys:
                 entity = entitys.get(key)
@@ -147,28 +164,28 @@ class UnitOfWork:
         else:
             query_db_ids = entity_ids
         
-        entitys = connection.queryAll(cls, query_db_ids)
+        entitys = connection.getEntityList(cls, query_db_ids)
 
         if not entitys:
             return []
         
         first_entity = entitys[0]
-        first_entity.setProps('list_ids', entity_ids)
+        first_entity.setProps('entity_ids_in_query', entity_ids)
         for entity in entitys:
             self.register(entity)
-            entity.setProps('list_first', first_entity.id)
+            entity.setProps('first_entity_in_query', first_entity.id)
             
-        return [self.getEntityInMemory(cls, entity_id) for entity_id in entity_ids]
+        return [self.getEntityInMemory(cls, entity_id) for entity_id in entity_ids if self.getEntityInMemory(cls, entity_id)]
     
-    def getAllByCond(self, cls, condition=None, args=[], **kwargs):
+    def getListByCond(self, cls, condition=None, args=[], **kwargs):
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
-        entity_ids = connection.queryIds(cls, condition, args)
+        entity_ids = connection.fetchEntityIds(cls, condition, args)
         
-        return self.getAll(cls, entity_ids, **kwargs)
+        return self.getList(cls, entity_ids, **kwargs)
     
-    def getAllByCond2(self, cls, condition=None, args=[], **kwargs):
+    def getListByCond2(self, cls, condition=None, args=[], **kwargs):
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
@@ -206,7 +223,7 @@ class UnitOfWork:
         cache_name = cls.cacheName(entity_id=entity_id, **kwargs)
         cache = self.cache_manager.get(cache_name)
 
-        if not self.disable_cache:
+        if self.use_cache:
             entity = self.getEntityInMemory(cls, entity_id)
             if entity:
                 return entity
@@ -219,7 +236,7 @@ class UnitOfWork:
         
         db_conn = cls.dbName(entity_id=entity_id, **kwargs)
         connection = self.connection_manager.get(db_conn)
-        entity = connection.queryOne(cls, entity_id)
+        entity = connection.getEntity(cls, entity_id)
         
         if entity is None:
             return None
@@ -229,55 +246,10 @@ class UnitOfWork:
         logging.debug("load entity %s from db: %s"%(entity, db_conn))
         
         return entity
-    
-    def getBelongsToEntity(self, entity, key):
-        
-        fkey, cls, fid = entity.getBelongsToInfo(key)
-        
-        if not fid:
-            return None
-        
-        if self.disable_preload:
-            return self.get(cls, fid)
-        
-        first_id = entity.getProps('list_first', None)
-        if  not first_id:
-            return self.get(cls, fid)
-
-        model = self.getEntityInMemory(cls, fid)
-        
-        if model:
-            return model
-        
-        if first_id == fid:
-            list_ids = entity.getProps('list_ids', [])
-        else:
-            model = self.getEntityInMemory(cls, first_id)
-            if not model:
-                return self.get(cls, fid)
-            
-            list_ids = model.getPrpos('list_ids', [])
-        
-        fids = set()
-        for list_id in list_ids:
-            model = self.getEntityInMemory(cls, list_id)
-            if not model:
-                continue
-            fid = getattr(model, fkey)
-            fids.add(fid)
-            
-        if fids:
-            self.getAll(cls, fids)
-            logging.debug("preload %s in (%s)"%(cls.modelName(), ",".join(fids)))
-            return self.getEntityInMemory(cls, fid)
-        
-        return self.get(cls, fid)
         
     
     def sync(self, entity):
         connection = self.connection_manager.get(entity._db)
-        cache = self.cache_manager.get(entity._cache)
-        cache_key = self.makeKey(entity.__class__, entity.id)
         
         if entity.isNew():
             if connection.insert(entity):
@@ -285,14 +257,12 @@ class UnitOfWork:
                 entity._is_new = False
                 entity.is_delete = False
                 entity.onNew()
-                cache.set(cache_key, entity)
                 return  True
         elif entity.isDelete():
             if connection.delete(entity):
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = True
-                cache.delete(cache_key)
                 entity.onDelete()
                 return  True
         elif entity.isDirty():
@@ -300,7 +270,6 @@ class UnitOfWork:
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = False
-                cache.set(cache_key, entity)
                 entity.onUpdate()
                 return True
         else:
@@ -333,5 +302,5 @@ class UnitOfWork:
         if hasattr(thread, 'unitofwork'):
             unitofwork = thread.unitofwork        
             unitofwork.entity_list = {}
-            unitofwork.disable_cache = False
-            unitofwork.disable_preload = False
+            unitofwork.use_cache = True
+            unitofwork.use_preload = False

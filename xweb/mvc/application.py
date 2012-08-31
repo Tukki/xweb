@@ -3,8 +3,8 @@
 import re
 import sys
 import inspect
-import logging
 import os
+import time
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple
 from werkzeug.contrib.sessions import SessionMiddleware, FilesystemSessionStore
@@ -139,8 +139,6 @@ class XApplication:
         else:
             template_path = "%s/templates" % (self.sub_app_name)
 
-        logging.info('base_path %s template_path %s' , base_path, template_path)
-
         if not os.path.isdir(template_path):
             raise Exception('template_path %s not found' % template_path)
         
@@ -176,6 +174,7 @@ class XApplication:
         
     def process(self, request):
         
+        logging.update()
         controller  = request.get('c')
         action      = request.get('a')
 
@@ -217,11 +216,11 @@ class XApplication:
                     for i in range(len(func_args)-len(defaults)): #@UnusedVariable
                         defaults.insert(0, None)
                             
-                    for func_arg, arg in zip(func_args, defaults):
-                        if not self.request.args.has_key(func_arg):
-                            kwargs[func_arg] = arg
+                    for k, v in zip(func_args, defaults):
+                        if not self.request.args.has_key(k):
+                            kwargs[k] = v
                         else:
-                            kwargs[func_arg] = request.args.get(func_args)
+                            kwargs[k] = request.args.get(func_args)
                     
             except (ImportError, AttributeError), ex: #@ReservedAssignment
                 logging.exception("Can't find the method to process")
