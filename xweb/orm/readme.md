@@ -1,12 +1,14 @@
-# xweb框架 ORM模块
+# XWEB框架 ORM模块
 
 lifei <lifei@7v1.net>
 
 v1.0 2012-06-08
 
-## 使用说明
+##数据的层次
 
-### 配置文件
+##使用说明
+
+###配置文件
 
 * 代码: settings.py
 
