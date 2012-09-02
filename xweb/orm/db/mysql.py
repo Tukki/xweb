@@ -6,7 +6,6 @@ Created on 2012-7-5
 '''
 import MySQLdb
 from connection import DBConnection
-from xweb.orm.entity import Entity
 from xweb.util import logging
 import time
 
@@ -141,6 +140,7 @@ class MySQLDBConnection(DBConnection):
         return [self.createEntity(cls, row) for row in rows]
     
     def insert(self, entity):
+        from xweb.orm.entity import Entity
         if not isinstance(entity, Entity):
             return False
         
@@ -170,6 +170,7 @@ class MySQLDBConnection(DBConnection):
         
     
     def update(self, entity):
+        from xweb.orm.entity import Entity
         if not isinstance(entity, Entity):
             return False
         

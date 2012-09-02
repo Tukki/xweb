@@ -7,10 +7,12 @@ Created on 2012-6-3
 '''
 
 import threading
-from xweb.config import XConfig
+import logging
+
 from cache import CacheManager
 from idgenerator import IdGenerator
-import logging
+
+from xweb.config import XConfig
 
 
 class EntityStatusError(Exception):
@@ -19,7 +21,7 @@ class EntityStatusError(Exception):
 class ModifyBasedCacheError(Exception):
     pass
 
-class UnitOfWork:
+class UnitOfWork(object):
     '''
     工作单元
     
@@ -290,7 +292,7 @@ class UnitOfWork:
     def inst(cls):
         thread = threading.currentThread()
         
-        if not hasattr(thread, 'unitofwork'):
+        if not hasattr(thread, 'unitofwork') or not thread.unitofwork:
             thread.unitofwork = UnitOfWork()
             
         return thread.unitofwork
@@ -299,7 +301,7 @@ class UnitOfWork:
     def reset(cls):
         thread = threading.currentThread()
         
-        if hasattr(thread, 'unitofwork'):
+        if hasattr(thread, 'unitofwork') and thread.unitofwork:
             unitofwork = thread.unitofwork        
             unitofwork.entity_list = {}
             unitofwork.use_cache = True

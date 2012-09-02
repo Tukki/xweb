@@ -5,19 +5,21 @@ import sys
 import inspect
 import os
 import time
+
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple
 from werkzeug.contrib.sessions import SessionMiddleware, FilesystemSessionStore
 from werkzeug.contrib.lint import LintMiddleware
 from werkzeug.contrib.profiler import ProfilerMiddleware
-from werkzeug.exceptions import NotFound, HTTPException
+from werkzeug.exceptions import NotFound, HTTPException, BadRequest, abort
+
 from jinja2.environment import Environment
 from jinja2.loaders import FileSystemLoader
+
 from controller import XController
-from xweb.util import logging
 from web import XRequest
+from xweb.util import logging
 from xweb.config import XConfig
-from werkzeug.exceptions import BadRequest, abort
 
 re.compile("\(\?P<([^>]+)>\)")
 keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
@@ -277,6 +279,7 @@ class XApplication:
             return controller_instance.response
         
         return NotFound()
+    
     def render(self, template_name, context):
         '''
         @note: override

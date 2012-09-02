@@ -5,7 +5,7 @@ Created on 2012-6-3
 @author: lifei
 '''
 
-import MySQLdb #@UnresolvedImport
+import MySQLdb
 from exception import *
 from xweb.util import logging
 import time

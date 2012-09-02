@@ -1,2 +1,2 @@
-from logger import Log as logging
+from logger import logging
 from wsgi import SubDomainDispatcherMiddleware

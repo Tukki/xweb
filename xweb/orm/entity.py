@@ -56,7 +56,7 @@ class Entity(object):
                 self.__dict__[k] = value
         
     # protected methods       
-    def _getUnitOfWork(self):
+    def getUnitOfWork(self):
         if not self._unitofwork:
             self._unitofwork = UnitOfWork.inst()
         return self._unitofwork
@@ -82,7 +82,7 @@ class Entity(object):
         '''
         
         foreign_primary_key, foreign_class, foreign_id = self.getBelongsToInfo(foreign_key)
-        unitofwork = self._getUnitOfWork()
+        unitofwork = self.getUnitOfWork()
         
         if not foreign_id:
             return None
@@ -262,8 +262,8 @@ class Entity(object):
         return cls._all_keys
     
     @classmethod
-    def get(cls, id):
-        return UnitOfWork.inst().get(cls, id)
+    def get(cls, entity_id):
+        return UnitOfWork.inst().get(cls, entity_id)
     
     @classmethod
     def getList(cls, entity_ids):
@@ -298,7 +298,7 @@ class MultiIdEntity(Entity):
         @param cls: 实体类型
         '''
         
-        unitofwork = UnitOfWork.inst()    
+        unitofwork = UnitOfWork.inst()
         entity = cls(**kwargs)
         unitofwork.register(entity)
         return entity
