@@ -274,8 +274,6 @@ class UnitOfWork(object):
                 entity.is_delete = False
                 entity.onUpdate()
                 return True
-        else:
-            raise EntityStatusError()
         
         return False
         

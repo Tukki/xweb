@@ -124,15 +124,13 @@ class XRewriteRule:
 class XWeb:
     app = None
 
-class XApplication:
+class XApplication(object):
     '''
     Application类
+    @author: lifei <lifei@7v1.net>
     '''
+    
     def __init__(self, sub_app_name, base_path=''):
-        
-        
-        self.rewrite_rules = []
-        self.loadConfig()
 
         self.sub_app_name = sub_app_name
         self.use_debuger = False
@@ -144,22 +142,27 @@ class XApplication:
         if not os.path.isdir(template_path):
             raise Exception('template_path %s not found' % template_path)
         
-        
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+        self.controller_module  = self.importModule('controller')
+        self.rewrite_module     = self.importModule('rewrite')
         
-        controller_module_path = "%s.controller" % sub_app_name
+        self.rewrite_rules = []
+        self.createRewriteRules()
+            
+        XWeb.app = self
+        
+    def importModule(self, module_name='controller'):        
+        controller_module_path = "%s.%s" % (self.sub_app_name, module_name)
         app_module = sys.modules.get(controller_module_path)
         
         if not app_module:
-            try:
-                app_module = __import__(controller_module_path)
-                self.controller_module = app_module.controller
-            except:
-                raise 
+            __import__(controller_module_path)
+            return sys.modules.get(controller_module_path)
+        
+        return app_module
+        
             
-        XWeb.app = self
-            
-    def rewrite(self, environ):
+    def createRequest(self, environ):
         
         for rule in self.rewrite_rules:
             path_info = environ.get('PATH_INFO', '/')
@@ -286,18 +289,21 @@ class XApplication:
         '''
         t = self.jinja_env.get_template(template_name)
         return t.render(context)
+    
     def handleException(self, controller, action, ex):
         return BadRequest(ex)
+    
     def createApp(self):
         app = self.runApp
         app = SessionMiddleware(app, FilesystemSessionStore())
         #app = ProfilerMiddleware(app)
         
         return app
+    
     def runApp(self, environ, start_response):
         response = None
         try:
-            request = self.rewrite(environ)
+            request = self.createRequest(environ)
             response = self.process(request)
             request.secure_cookies.save_cookie(response)
         except HTTPException, ex:
@@ -306,12 +312,11 @@ class XApplication:
         if response:
             return response(environ, start_response)
         
-    def loadConfig(self):
+    def createRewriteRules(self):
         try:
-            if not self.rewrite_rules:
-                rules = XConfig.get('rewrite_rules')
-                if isinstance(rules, list):
-                    self.buildRewrite(rules)
+            if not self.rewrite_rules and self.rewrite_module:
+                if isinstance(self.rewrite_module.rules, list):
+                    self.buildRewrite(self.rewrite_module.rules)
         except:
             pass
         
