@@ -39,11 +39,12 @@ class DBConnection:
     def execute(self, sql, values):
         
         n = 0
-        cursor = self._conn.cursor()
+        cursor = self.connect().cursor()
         
         try:
             t = time.time()
             n = cursor.execute(sql, tuple(values))
+            self.last_time = time.time()
             t= time.time() - t
         finally:
             cursor.close()
@@ -54,11 +55,12 @@ class DBConnection:
     
     def fetchRow(self, sql, *args):
         
-        cursor = self._conn.cursor()
+        cursor = self.connect().cursor()
         
         try:
             t = time.time()
             cursor.execute(sql, args)
+            self.last_time = time.time()
             row = cursor.fetchone()
             t= time.time() - t
             logging.debug("sql: \"%s\", params: %s, time: %.1fms"%(sql,
@@ -71,11 +73,12 @@ class DBConnection:
     
     def fetchRows(self, sql, *args):
         
-        cursor = self._conn.cursor()
+        cursor = self.connect().cursor()
         
         try:
             t = time.time()
             cursor.execute(sql, args)
+            self.last_time = time.time()
             row = cursor.fetchall()
             t = time.time() - t
             logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,

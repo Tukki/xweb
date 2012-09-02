@@ -18,8 +18,9 @@ from jinja2.loaders import FileSystemLoader
 
 from controller import XController
 from web import XRequest
-from xweb.util import logging
+from xweb.util import logging, BlockProfiler
 from xweb.config import XConfig
+from xweb.orm import UnitOfWork
 
 re.compile("\(\?P<([^>]+)>\)")
 keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
@@ -143,21 +144,25 @@ class XApplication(object):
             raise Exception('template_path %s not found' % template_path)
         
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
+        self.www_module         = self.importModule()
         self.controller_module  = self.importModule('controller')
-        self.rewrite_module     = self.importModule('rewrite')
         
         self.rewrite_rules = []
         self.createRewriteRules()
             
         XWeb.app = self
         
-    def importModule(self, module_name='controller'):        
-        controller_module_path = "%s.%s" % (self.sub_app_name, module_name)
-        app_module = sys.modules.get(controller_module_path)
+    def importModule(self, module_name=''):        
+        if module_name:
+            module_path = "%s.%s" % (self.sub_app_name, module_name)
+        else:
+            module_path = self.sub_app_name
+            
+        app_module = sys.modules.get(module_path)
         
         if not app_module:
-            __import__(controller_module_path)
-            return sys.modules.get(controller_module_path)
+            __import__(module_path)
+            return sys.modules.get(module_path)
         
         return app_module
         
@@ -237,11 +242,13 @@ class XApplication(object):
            
             try:
                 controller_instance.action = action
-                if controller_instance.beforeAction():
-                    action_method(**kwargs)
-                    controller_instance.commit()
-
-                controller_instance.afterAction()
+                
+                with BlockProfiler("action execution"):
+                    if controller_instance.beforeAction():
+                        action_method(**kwargs)
+                        controller_instance.commit()
+    
+                    controller_instance.afterAction()
                 
                 context = controller_instance.context
                 content_type = controller_instance.content_type
@@ -278,6 +285,9 @@ class XApplication(object):
                     else:
                         logging.exception("error in process action")
                         return self.handleException(controller, action, ex)
+                    
+            finally:
+                UnitOfWork.reset()
             
             return controller_instance.response
         
@@ -295,28 +305,32 @@ class XApplication(object):
     
     def createApp(self):
         app = self.runApp
-        app = SessionMiddleware(app, FilesystemSessionStore())
+        #app = SessionMiddleware(app, FilesystemSessionStore())
         #app = ProfilerMiddleware(app)
         
         return app
     
     def runApp(self, environ, start_response):
         response = None
+        t = time.time()
         try:
             request = self.createRequest(environ)
             response = self.process(request)
             request.secure_cookies.save_cookie(response)
         except HTTPException, ex:
             response = ex
+            
+        t = (time.time() - t) * 1000
+        logging.debug("Request time: %.2f ms" % t)
         
         if response:
             return response(environ, start_response)
         
     def createRewriteRules(self):
         try:
-            if not self.rewrite_rules and self.rewrite_module:
-                if isinstance(self.rewrite_module.rules, list):
-                    self.buildRewrite(self.rewrite_module.rules)
+            if not self.rewrite_rules and self.www_module:
+                if isinstance(self.www_module.rewrite_rules, list):
+                    self.buildRewrite(self.www_module.rewrite_rules)
         except:
             pass
         

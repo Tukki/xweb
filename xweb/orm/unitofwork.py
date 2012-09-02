@@ -274,6 +274,8 @@ class UnitOfWork(object):
                 entity.is_delete = False
                 entity.onUpdate()
                 return True
+        else:
+            raise EntityStatusError()
         
         return False
         
@@ -304,3 +306,4 @@ class UnitOfWork(object):
             unitofwork.entity_list = {}
             unitofwork.use_cache = True
             unitofwork.use_preload = False
+            unitofwork.connection_manager.has_loaded = {}

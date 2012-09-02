@@ -40,11 +40,8 @@ class ConnectionManager:
                 'mysql': MySQLDBConnection
                 }
             
-            cls = driver2cls.get(driver)
+            cls = driver2cls.get(driver) or MySQLDBConnection
             
-            if not cls:
-                cls = MySQLDBConnection
-                
             conn = cls(name, conf)
             self.connections[name] = conn
             logging.debug("init db connection: %s"%conn)

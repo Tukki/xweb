@@ -36,11 +36,27 @@ class MySQLDBConnection(DBConnection):
         self.name = name
         self.desc =  "%s<mysql://%s:%s/%s>"%(self.name, conf.get('host', '127.0.0.1'),
                         conf.get('port', 3306), conf.get('db', 'test'))
-
-        self._conn = MySQLdb.connect(**kwargs)
-        self._conn.autocommit(False)
+        
+        self.connect_args = kwargs
+        self.timeout = conf.get('timeout') or 10
+        self.last_time = time.time()
+        
+    def isTimeout(self):
+        return time.time() - self.last_time > self.timeout
         
     def connect(self):
+        
+        if hasattr(self, '_conn') and self._conn:
+            if not self.isTimeout():
+                return self._conn
+            else:
+                self._conn.close()
+                logging.debug("reconnect mysql server")
+            
+        self._conn = MySQLdb.connect(**self.connect_args)
+        self._conn.autocommit(False)
+        self.timeout = time.time()
+            
         return self._conn;
         
     def getEntity(self, cls, entity_id):
