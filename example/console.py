@@ -29,14 +29,6 @@ config = {
             'db': 'webdb',
             'charset': 'utf8'
         },
-        'mining': {
-            'driver':'mysql',   
-            'user': 'mining',
-            'passwd': 'mining@feifei.com19840835',
-            'host': '192.168.20.48',
-            'db': 'mining',
-            'charset': 'utf8'
-        }
     },
     'cache': {
         'default':'127.0.0.1:2000'
