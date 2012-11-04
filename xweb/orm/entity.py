@@ -274,6 +274,17 @@ class Entity(object):
         return UnitOfWork.inst().getListByCond(cls, condition, args)
     
     
+class ShardingEntity(Entity):
+    """
+    分片存储的实体
+    """
+    
+    @classmethod
+    def getListByCond(cls, condition='', *args):
+        return UnitOfWork.inst().getListByCond(cls, condition, args)
+    
+    
+    
 class MultiIdEntity(Entity):
     '''
     多主键实体类

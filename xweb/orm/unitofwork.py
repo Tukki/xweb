@@ -25,7 +25,7 @@ class UnitOfWork(object):
     '''
     工作单元
     
-    NOTE: 由于数据库连接线程安全的限制，工作单元只提供thread local的访问实例，不提供进程级实例
+    @note: 由于数据库连接线程安全的限制，工作单元只提供thread local的访问实例，不提供进程级实例
     '''
     
     def __init__(self):
