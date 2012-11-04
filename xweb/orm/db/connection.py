@@ -43,10 +43,10 @@ class DBConnection:
         try:
             t = time.time()
             n = cursor.execute(sql, tuple(values))
-            self.last_time = time.time()
-            t= time.time() - t
         finally:
             cursor.close()
+            self.last_time = time.time()
+            t= time.time() - t
             logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
                     str(values), n, t*1000))
         

@@ -5,9 +5,9 @@ Created on 2012-7-5
 @author: lifei
 '''
 try:
-    import MySQLdb as mysql
-except:
     import pymysql as mysql
+except ImportError:
+    import MySQLdb as mysql
     
 from connection import DBConnection
 from xweb.util import logging
@@ -29,6 +29,8 @@ def generate_where_clause(primary_key, entity_id):
 class MySQLDBConnection(DBConnection):
     """
     MySQL实现
+    
+    @param timeout: 数据库链接的超时时间
     """
     
     def __init__(self, name, conf):
