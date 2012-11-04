@@ -4,7 +4,11 @@ Created on 2012-7-5
 
 @author: lifei
 '''
-import MySQLdb
+try:
+    import MySQLdb as mysql
+except:
+    import pymysql as mysql
+    
 from connection import DBConnection
 from xweb.util import logging
 import time
@@ -53,11 +57,21 @@ class MySQLDBConnection(DBConnection):
                 self._conn.close()
                 logging.debug("reconnect mysql server")
             
-        self._conn = MySQLdb.connect(**self.connect_args)
+        self._conn = mysql.connect(**self.connect_args)
         self._conn.autocommit(False)
         self.timeout = time.time()
             
         return self._conn;
+    
+    def begin(self):
+        if hasattr(self.connect(), 'begin'):
+            self.connect().begin()
+        
+    def commit(self):
+        self.connect().commit()
+        
+    def rollback(self):
+        self.connect().rollback()
         
     def getEntity(self, cls, entity_id):
         

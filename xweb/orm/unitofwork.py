@@ -71,7 +71,6 @@ class UnitOfWork(object):
             
             for entity_id in entity_dict:
                 entity = entity_dict.get(entity_id)
-                
                 if entity.isLoadedFromCache():
                     raise ModifyBasedCacheError("%s(%s) is loaded from cache, so can't be modified!!"%(
                         entity.__class__.__name__, entity.id))
@@ -89,8 +88,8 @@ class UnitOfWork(object):
                 
         for name in db_names:
             connection = self.connection_manager.get(name)
-            if name == connection.name:
-                connection.connect().begin()
+            if connection and name == connection.name:
+                connection.begin()
                 
         try:
             for entitys in [deletes, updates, news]:
@@ -100,7 +99,7 @@ class UnitOfWork(object):
             for name in db_names:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
-                    connection.connect().commit()
+                    connection.commit()
             
             for entity in deletes:
                 try:
@@ -108,7 +107,7 @@ class UnitOfWork(object):
                     cache_key = self.makeKey(entity.__class__, entity.id)
                     cache.delete(cache_key)
                 except:
-                    pass
+                    logging.exception("delete cache fail")
                 
             for entitys in [updates, news]:
                 for entity in entitys:
@@ -117,21 +116,21 @@ class UnitOfWork(object):
                         cache_key = self.makeKey(entity.__class__, entity.id)
                         cache.set(cache_key, entity)
                     except:
-                        pass
+                        logging.exception("set cache fail")
                     
             return True
         except:
-            logging.exception("error in commit")
+            logging.exception("error in commit, rollback")
             for name in db_names:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
-                    connection.connect().rollback()
+                    connection.rollback()
             return False
         finally:
             self.entity_list.clear()
                     
         
-    def getEntityInMemory(self, cls, entity_id): #@ReservedAssignment
+    def getEntityInMemory(self, cls, entity_id):
         cls_name = cls.__name__
         if self.entity_list.get(cls_name) is None:
             return None

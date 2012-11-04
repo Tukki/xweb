@@ -5,7 +5,6 @@ Created on 2012-6-3
 @author: lifei
 '''
 
-import MySQLdb
 from exception import *
 from xweb.util import logging
 import time
@@ -23,7 +22,7 @@ class DBConnection:
         if not driver:
             driver = 'mysql'
             
-        self._db = MySQLdb.connect(host="localhost",user="root",passwd="",db="test",charset="utf8")
+        self._db = None
     
     def createEntity(self, cls, row):
         kwargs = {}
@@ -111,6 +110,15 @@ class DBConnection:
         pass
     
     def close(self):
+        pass
+    
+    def begin(self):
+        pass
+    
+    def commit(self):
+        pass
+    
+    def rollback(self):
         pass
     
 

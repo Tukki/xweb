@@ -149,7 +149,7 @@ class XApplication(object):
         
         self.rewrite_rules = []
         self.createRewriteRules()
-            
+        
         XWeb.app = self
         
     def importModule(self, module_name=''):        
@@ -214,27 +214,31 @@ class XApplication(object):
                 if not callable(action_method):
                     return BadRequest('%s.%s is not callable', controller_class_name, action_method_name)
                 
-                spec = inspect.getargspec(action_method.__func__)
-                func_args = spec.args
-                defaults = spec.defaults
-                
                 kwargs = {}
-                if defaults and func_args:
-                    func_args = list(func_args)
-                    defaults = list(defaults)
+                
+                spec = inspect.getargspec(action_method)
+                func_args = spec.args
+                if func_args:
                     
-                    for i in range(len(func_args)-len(defaults)): #@UnusedVariable
-                        defaults.insert(0, None)
+                    for k in func_args:
+                        if request.args.has_key(k):
+                            kwargs[k] = request.args.get(k)
                             
-                    for k, v in zip(func_args, defaults):
-                        if not self.request.args.has_key(k):
-                            kwargs[k] = v
-                        else:
-                            kwargs[k] = request.args.get(func_args)
+                #func_args = list(func_args)
+                #defaults = list(defaults)
+                #
+                #for i in range(len(func_args)-len(defaults)): #@UnusedVariable
+                #    defaults.insert(0, None)
+                #        
+                #for k, v in zip(func_args, defaults):
+                #    if not self.request.args.has_key(k):
+                #        kwargs[k] = v
+                #    else:
+                #        kwargs[k] = request.args.get(k)
                     
-            except (ImportError, AttributeError), ex: #@ReservedAssignment
+            except (ImportError, AttributeError) as ex:
                 logging.exception("Can't find the method to process")
-                return BadRequest('SEARCH METHOD ERROR: %s', ex)
+                return BadRequest('SEARCH METHOD ERROR %s' % ex)
                 
             except Exception as ex:
                 logging.exception(ex)
@@ -323,8 +327,7 @@ class XApplication(object):
         t = (time.time() - t) * 1000
         logging.debug("Request time: %.2f ms" % t)
         
-        if response:
-            return response(environ, start_response)
+        return response(environ, start_response)
         
     def createRewriteRules(self):
         try:
@@ -333,6 +336,12 @@ class XApplication(object):
                     self.buildRewrite(self.www_module.rewrite_rules)
         except:
             pass
+        finally:
+            self.rewrite_rules.extend([
+                XRewriteRule('/',                  {'c':'default', 'a':'index'}),
+                XRewriteRule('/<c>/',              {'a':'index'}),
+                XRewriteRule('/<c>/<a>/',          {}),
+            ])
         
         return self
         
@@ -340,12 +349,6 @@ class XApplication(object):
         self.rewrite_rules = []
         for rule in rules:
             self.rewrite_rules.append(XRewriteRule(*rule))
-            
-        self.rewrite_rules.extend([
-            XRewriteRule('/',                  {'c':'default', 'a':'index'}),
-            XRewriteRule('/<c>/',              {'a':'index'}),
-            XRewriteRule('/<c>/<a>/',          {}),
-        ])
         
     def createUrl(self, route, **params):
         for rule in self.rewrite_rules:
@@ -357,9 +360,9 @@ class XApplication(object):
         return ''
         
     def run(self):
-        run_simple('0.0.0.0', 5000, self.runApp, use_reloader=True, use_debugger=True)    
+        run_simple('0.0.0.0', 5000, self.runApp, threaded=True)    
         
     def runDebug(self):
         self.use_debuger = True
-        app = DebuggedApplication(self.createApp(), evalex=True)
-        run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True)
+        app = DebuggedApplication(self.runApp, evalex=True)
+        run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True, threaded=True)

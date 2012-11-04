@@ -280,6 +280,7 @@ class MultiIdEntity(Entity):
     
     @author: lifei
     @since: v1.0
+    @note: 获取多干实体(#getList)性能比较低
     '''
     _keys = []
             
