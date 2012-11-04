@@ -41,6 +41,8 @@ class XController(object):
         self.json           = {}
         self.action         = 'index'
         
+        self.context['controller']  = self
+        
     def getdata(self):
         return self.response.data
     

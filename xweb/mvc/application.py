@@ -122,9 +122,6 @@ class XRewriteRule:
             return url + "?" + "&".join(more)
         
 
-class XWeb:
-    app = None
-
 class XApplication(object):
     '''
     Application类
@@ -149,8 +146,6 @@ class XApplication(object):
         
         self.rewrite_rules = []
         self.createRewriteRules()
-        
-        XWeb.app = self
         
     def importModule(self, module_name=''):        
         if module_name:
@@ -257,7 +252,7 @@ class XApplication(object):
                             template_name = controller_instance.template
                         else:
                             template_name = "%s/%s.html" % (controller, action)
-                            
+                        
                         if hasattr(controller_instance, 'render') and callable(controller_instance.render):
                             controller_instance.response.data = controller_instance.render(action=action)
                         else:

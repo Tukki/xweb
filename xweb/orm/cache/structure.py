@@ -64,6 +64,10 @@ class BaseCache(object):
         return cls(**kwargs)
     
     @classmethod
+    def _getMulti(cls, **kwargs):
+        return cls(**kwargs)
+    
+    @classmethod
     def cacheName(cls, **kwargs):
         return 'default'
     
