@@ -224,18 +224,6 @@ class XApplication(object):
                         if request.args.has_key(k):
                             kwargs[k] = request.args.get(k)
                             
-                #func_args = list(func_args)
-                #defaults = list(defaults)
-                #
-                #for i in range(len(func_args)-len(defaults)): #@UnusedVariable
-                #    defaults.insert(0, None)
-                #        
-                #for k, v in zip(func_args, defaults):
-                #    if not self.request.args.has_key(k):
-                #        kwargs[k] = v
-                #    else:
-                #        kwargs[k] = request.args.get(k)
-                    
             except (ImportError, AttributeError) as ex:
                 logging.exception("Can't find the method to process")
                 return BadRequest('SEARCH METHOD ERROR %s' % ex)
