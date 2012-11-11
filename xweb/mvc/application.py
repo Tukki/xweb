@@ -191,7 +191,7 @@ class XApplication(object):
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
                 if self.use_debuger:
-                    reload(self.controller_module)
+                    self.reload()
 
                 if not hasattr(self.controller_module, controller_class_name):
                     return BadRequest('CONTROLLER NOT FOUND')
@@ -350,3 +350,24 @@ class XApplication(object):
         self.use_debuger = True
         app = DebuggedApplication(self.runApp, evalex=True)
         run_simple('0.0.0.0', port, app, use_debugger=True)
+
+    def reload(self):
+        modules = sys.modules
+        app_path = os.path.realpath("..")
+        for key in modules.keys():
+
+            module = modules.get(key)
+            if not module:
+                continue
+
+            file_path = getattr(module, '__file__', None)
+
+            if not file_path:
+                continue
+
+            m_real_file = os.path.realpath(file_path)
+            if m_real_file.startswith(app_path):
+                try:
+                    reload(module)
+                except:
+                    pass
