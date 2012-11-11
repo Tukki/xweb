@@ -7,7 +7,7 @@ import os
 import time
 
 from werkzeug.debug import DebuggedApplication
-from werkzeug.serving import run_simple
+from werkzeug.serving import run_simple, make_server
 from werkzeug.contrib.sessions import SessionMiddleware, FilesystemSessionStore
 from werkzeug.contrib.lint import LintMiddleware
 from werkzeug.contrib.profiler import ProfilerMiddleware
@@ -190,11 +190,13 @@ class XApplication(object):
             try:
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
+                if self.use_debuger:
+                    reload(self.controller_module)
+
                 if not hasattr(self.controller_module, controller_class_name):
                     return BadRequest('CONTROLLER NOT FOUND')
                     
                 controller_class = getattr(self.controller_module, controller_class_name)
-
                 controller_instance = controller_class(request, self)
                 
                 if not isinstance(controller_instance, XController):
@@ -262,16 +264,15 @@ class XApplication(object):
                 else:
                     return abort(status_code, context.get('description'))
             except Exception, ex:
+                if self.use_debuger:
+                    raise
                 if hasattr(controller_instance, 'handleException') and callable(controller_instance.handleException):
                     kwargs['action'] = action
                     kwargs['ex'] = ex
                     controller_instance.handleException(**kwargs)
                 else:
-                    if self.use_debuger:
-                        raise
-                    else:
-                        logging.exception("error in process action")
-                        return self.handleException(controller, action, ex)
+                    logging.exception("error in process action")
+                    return self.handleException(controller, action, ex)
                     
             finally:
                 UnitOfWork.reset()
@@ -345,7 +346,7 @@ class XApplication(object):
     def run(self):
         run_simple('0.0.0.0', 5000, self.runApp, threaded=True)    
         
-    def runDebug(self):
+    def runDebug(self, port=5000):
         self.use_debuger = True
         app = DebuggedApplication(self.runApp, evalex=True)
-        run_simple('0.0.0.0', 5000, app, use_reloader=True, use_debugger=True, threaded=True)
+        run_simple('0.0.0.0', port, app, use_debugger=True)
