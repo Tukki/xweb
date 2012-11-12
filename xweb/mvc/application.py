@@ -190,9 +190,6 @@ class XApplication(object):
             try:
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
-                if self.use_debuger:
-                    self.reload()
-
                 if not hasattr(self.controller_module, controller_class_name):
                     return BadRequest('CONTROLLER NOT FOUND')
                     
@@ -347,27 +344,61 @@ class XApplication(object):
         run_simple('0.0.0.0', 5000, self.runApp, threaded=True)    
         
     def runDebug(self, port=5000):
+        #import thread
+        #thread.start_new_thread(_reload, (self.controller_module,path))
         self.use_debuger = True
         app = DebuggedApplication(self.runApp, evalex=True)
-        run_simple('0.0.0.0', port, app, use_debugger=True)
+        run_simple('0.0.0.0', port, app, use_debugger=True, use_reloader=True)
 
-    def reload(self):
-        modules = sys.modules
-        app_path = os.path.realpath("..")
-        for key in modules.keys():
 
-            module = modules.get(key)
-            if not module:
+def _iter_module_files():
+    for k in sys.modules.keys():
+        module = sys.modules.get(k)
+        filename = getattr(module, '__file__', None)
+        if filename:
+            old = None
+            while not os.path.isfile(filename):
+                old = filename
+                filename = os.path.dirname(filename)
+                if filename == old:
+                    break
+            else:
+                if filename[-4:] in ('.pyc', '.pyo'):
+                    filename = filename[:-1]
+                elif filename[-9:] == '$py.class':
+                    filename = "%s.py" % filename[:-9]
+                elif filename[-4:] == '.jar':
+                    continue
+                    
+                yield filename, module, k
+                
+def _reload(controller_module, path='controller'):
+    mtimes = {}
+    while 1: 
+        
+        has_reload = False
+        sub_modules = set()
+        for filename, module, k in _iter_module_files():
+            try:
+                mtime = os.stat(filename).st_mtime
+            except OSError:
                 continue
 
-            file_path = getattr(module, '__file__', None)
-
-            if not file_path:
+            if os.path.realpath(filename).find(path) > -1:
+                sub_modules.add(k)
+            
+            old_time = mtimes.get(filename)
+            if old_time is None:
+                mtimes[filename] = mtime
                 continue
-
-            m_real_file = os.path.realpath(file_path)
-            if m_real_file.startswith(app_path):
-                try:
-                    reload(module)
-                except:
-                    pass
+            elif mtime > old_time:
+                logging.info(' * Detected change in %r, reloading', filename)
+                reload(module)
+                has_reload = True
+                mtimes[filename] = mtime
+        
+        if has_reload:
+            print sub_modules
+            reload(controller_module)
+            
+        time.sleep(1)
