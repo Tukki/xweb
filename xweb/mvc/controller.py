@@ -60,8 +60,14 @@ class XController(object):
     def afterAction(self):
         pass
         
-    def echo(self, text):
-        self.data += str(text)
+    def echo(self, text, *args, **kwargs):
+        
+        if kwargs:
+            self.data += str(text % kwargs)
+        elif args:
+            self.data += str(text % args)
+        else:
+            self.data += str(text)
         
     def setContentType(self, content_type):
         self.content_type = content_type
