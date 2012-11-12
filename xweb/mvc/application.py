@@ -344,11 +344,51 @@ class XApplication(object):
         run_simple('0.0.0.0', 5000, self.runApp, threaded=True)    
         
     def runDebug(self, port=5000):
-        #import thread
-        #thread.start_new_thread(_reload, (self.controller_module,path))
+        import thread
+        thread.start_new_thread(self._reload, ())
         self.use_debuger = True
         app = DebuggedApplication(self.runApp, evalex=True)
-        run_simple('0.0.0.0', port, app, use_debugger=True, use_reloader=True)
+        run_simple('0.0.0.0', port, app, use_debugger=True)
+        
+    def _reload(self, path='ims3d4py'):
+        mtimes = {}
+        
+        while 1: 
+            
+            has_reload = False
+            sub_modules = set()
+            for filename, module, k in _iter_module_files():
+                
+                try:
+                    mtime = os.stat(filename).st_mtime
+                except OSError:
+                    continue
+                
+                if os.path.realpath(filename).find(path) > -1:
+                    sub_modules.add(k)
+                
+                old_time = mtimes.get(filename)
+                if old_time is None:
+                    mtimes[filename] = mtime
+                    continue
+                elif mtime > old_time:
+                    logging.info(' * Detected change in %r, reloading', filename)
+                    reload(module)
+                    has_reload = True
+                    mtimes[filename] = mtime
+            
+            if has_reload:
+                for k in sub_modules:
+                    
+                    if k in ['__main__'] or k not in sys.modules:
+                        continue
+                    
+                    del sys.modules[k]
+                    
+                self.www_module         = self.importModule()
+                self.controller_module  = self.importModule('controller')
+                
+            time.sleep(1)
 
 
 def _iter_module_files():
@@ -372,33 +412,3 @@ def _iter_module_files():
                     
                 yield filename, module, k
                 
-def _reload(controller_module, path='controller'):
-    mtimes = {}
-    while 1: 
-        
-        has_reload = False
-        sub_modules = set()
-        for filename, module, k in _iter_module_files():
-            try:
-                mtime = os.stat(filename).st_mtime
-            except OSError:
-                continue
-
-            if os.path.realpath(filename).find(path) > -1:
-                sub_modules.add(k)
-            
-            old_time = mtimes.get(filename)
-            if old_time is None:
-                mtimes[filename] = mtime
-                continue
-            elif mtime > old_time:
-                logging.info(' * Detected change in %r, reloading', filename)
-                reload(module)
-                has_reload = True
-                mtimes[filename] = mtime
-        
-        if has_reload:
-            print sub_modules
-            reload(controller_module)
-            
-        time.sleep(1)
