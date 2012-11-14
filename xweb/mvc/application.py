@@ -193,7 +193,7 @@ class XApplication(object):
 
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
                 if not hasattr(self.controller_module, controller_class_name):
-                    return BadRequest('CONTROLLER NOT FOUND')
+                    return BadRequest('CONTROLLER NOT FOUND %s', controller_class_name)
                     
                 controller_class = getattr(self.controller_module, controller_class_name)
                 controller_instance = controller_class(request, self)
@@ -201,10 +201,10 @@ class XApplication(object):
                 if not isinstance(controller_instance, XController):
                     return BadRequest('CONTROLLER ERROR')
 
-                action_method_name = 'do%s'%action.title()
+                action_method_name = 'do%s'%action.title().replace('_', '')
                 
                 if not hasattr(controller_instance, action_method_name):
-                    return BadRequest('METHOD NOT FOUND')
+                    return BadRequest('METHOD NOT FOUND %s', action_method_name)
                 
                 action_method = getattr(controller_instance, action_method_name)
                 if not callable(action_method):
