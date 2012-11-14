@@ -5,6 +5,7 @@ import sys
 import inspect
 import os
 import time
+import json
 
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple, make_server
@@ -242,7 +243,7 @@ class XApplication(object):
                 
                 if status_code == 200:
                     if content_type == 'json':
-                        controller_instance.response.data = context.get('json') or ''
+                        controller_instance.response.data = json.dumps(getattr(controller_instance, 'json', ''))
                     elif content_type == 'text':
                         pass
                     else:
