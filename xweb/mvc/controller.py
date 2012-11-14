@@ -25,7 +25,7 @@ class XController(object):
         self.response = XResponse()
         self.app = application
         
-        self.content_type = 'html'
+        self.setContentType('html')
         self.charset = self.response.charset
         
         # 识别这个请求是否是只读的
