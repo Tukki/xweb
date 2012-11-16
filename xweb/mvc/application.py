@@ -231,7 +231,7 @@ class XApplication(object):
             try:
                 controller_instance.action = action
                 
-                with BlockProfiler("action execution"):
+                with BlockProfiler("[XWEB] ACTION EXECTION"):
                     if controller_instance.beforeAction():
                         action_method(**kwargs)
                         controller_instance.commit()

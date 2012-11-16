@@ -1,28 +1,23 @@
 #coding:utf8
 from unitofwork import UnitOfWork
-from xweb.util import logging
+from xweb.util import logging, BlockProfiler
+from field import XField
+from xweb.orm.field import XBelongsToField
 
 class Entity(object):
     '''
     领域实体基类
     
     _version: 实体版本
-    _belongs_to: BelongsTo的定义
-    _default_values: 字段的默认值
     _primary_key: 主键名称
-    _keys: 字段列表
-    _types: 字段类型 如: {'name':long}
     
     @author: lifei
     @since: v1.0
     '''
     
     _version = 1
-    _belongs_to = {}
-    _default_values = {}
     _primary_key = 'id'
-    _keys = [_primary_key]
-    _types = {}
+    disable_preload = False
     
     def __init__(self, **kwargs):
         self._is_new = True
@@ -42,46 +37,43 @@ class Entity(object):
                 
     def load(self, **kwargs):
         cls = self.__class__
-        for k in cls.allKeys():
-            value = None
-            if kwargs.has_key(k):
-                value = kwargs.get(k)
-            elif self._default_values.has_key(k):
-                value = self._default_values.get(k)
-            
-            if cls._types.has_key(k):
-                _format = cls._types.get(k)
-                self.__dict__[k] = _format(value)
-            else:
-                self.__dict__[k] = value
+        for k,v in cls.getFields().items():
+            self.__dict__[k] = v.format(kwargs.get(k))
         
     # protected methods       
     def getUnitOfWork(self):
         if not self._unitofwork:
             self._unitofwork = UnitOfWork.inst()
         return self._unitofwork
-        
-    # override methods
-    def __getattr__(self, key):
-        
-        cls = self.__class__
-        _belongs_to = cls._belongs_to
-        
-        if _belongs_to.has_key(key):
-            return self.__getBelongsToEntity(key)
-        
-        if hasattr(self, key):
-            return super(Entity, self).__getattribute__(key)
-        elif cls._default_values.has_key(key):
-            return cls._default_values.get(key)
-        
-        return None
     
-    def __getBelongsToEntity(self, foreign_key):
+    #override
+    def __getattribute__(self, *args, **kwargs):
+        
+        if args and args[0] != 'hasBelongsToField' and self.hasBelongsToField(args[0]):
+            return self.__getBelongsToEntity(args[0])
+        return object.__getattribute__(self, *args, **kwargs)
+            
+    def getBelongsToInfo(self, name):
+        
+        field = self.getBelongsToFieldByName(name)
+        
+        if not field:
+            return None, None, None
+        
+        (foreign_primary_key, foreign_class) = field.key, field.cls
+        
+        if type(foreign_primary_key) == tuple:
+            foreign_value = tuple([ object.__getattribute__(self, key)  for key in foreign_primary_key])
+        else:
+            foreign_value = object.__getattribute__(self, foreign_primary_key)
+            
+        return foreign_primary_key, foreign_class, foreign_value
+    
+    def __getBelongsToEntity(self, name):
         '''
         '''
         
-        foreign_primary_key, foreign_class, foreign_id = self.getBelongsToInfo(foreign_key)
+        foreign_key, foreign_class, foreign_id = self.getBelongsToInfo(name)
         unitofwork = self.getUnitOfWork()
         
         if not foreign_id:
@@ -95,10 +87,10 @@ class Entity(object):
             return foreign_entity
         
         # 多主键的实体禁用preload功能
-        if type(foreign_primary_key) != str:
+        if type(foreign_key) != str:
             return unitofwork.get(foreign_class, foreign_id)
         
-        first_entity_id = self.getProps('first_entity_in_query', None)
+        first_entity_id = self.getProps('first_entity_in_query')
         if  not first_entity_id:
             return unitofwork.get(foreign_class, foreign_id)
         
@@ -108,40 +100,46 @@ class Entity(object):
             first_entity = unitofwork.getEntityInMemory(type(self), first_entity_id)
             if not first_entity:
                 return unitofwork.get(foreign_class, foreign_id)
-            entity_ids_in_query = first_entity.getPrpos('entity_ids_in_query', [])
+            entity_ids_in_query = first_entity.getProps('entity_ids_in_query', [])
             
-        foreign_entity_ids = set()
+        foreign_entity_infos = {}
         for current_entity_id in entity_ids_in_query:
 
             entity_in_query = unitofwork.getEntityInMemory(type(self), current_entity_id)
             if not entity_in_query:
                 continue
             
-            foreign_entity_id = getattr(entity_in_query, foreign_primary_key)
-            foreign_entity_ids.add(foreign_entity_id)
+            sub_foreign_class, sub_foreign_id = entity_in_query.getBelongsToInfo(name)[-2:]
             
-        if foreign_entity_ids:
-            foreign_entitys = unitofwork.getList(foreign_class, foreign_entity_ids)
-            logging.debug("preload %s in %s" % (foreign_class.modelName(), str([foreign_entity.getId() for foreign_entity in foreign_entitys])))
+            if not foreign_entity_infos.has_key(sub_foreign_class):
+                foreign_entity_infos[sub_foreign_class] = [sub_foreign_id]
+            else:
+                foreign_entity_infos[sub_foreign_class].append(sub_foreign_id)
+                
+        if foreign_entity_infos:
+            
+            for sub_foreign_class, sub_foreign_ids in foreign_entity_infos.items():
+                foreign_entitys = unitofwork.getList(sub_foreign_class, sub_foreign_ids)
+                logging.debug("[XWEB] PRELOAD %s in %s" % 
+                              (sub_foreign_class.modelName(),
+                               str([foreign_entity.getId() for foreign_entity in foreign_entitys])))
+                
             return unitofwork.getEntityInMemory(foreign_class, foreign_id)
         
         return unitofwork.get(foreign_class, foreign_id)
     
     def __setattr__(self, k, value):
-        cls = self.__class__
-        if cls._types.has_key(k):
-            _format = cls._types.get(k)
-            format_value = _format(value)
-        else:
-            format_value = value
-            
-        if format_value == self.__dict__.get(k):
-            return
         
-        self.__dict__[k] = format_value
-        if k in cls._keys:
+        if self.hasField(k):
+            field = self.getFieldByName(k)
+            value = field.format(value)
+            if value == self.__dict__.get(k):
+                return
+            
             self._is_dirty = True
             self._dirty_keys.add(k)
+        
+        self.__dict__[k] = value
             
     def __str__(self):
         return "%s(%s)"%(self.modelName(), self.getId())
@@ -152,23 +150,6 @@ class Entity(object):
     def getId(self):
         primary_key = self.primaryKey()
         return getattr(self, primary_key)
-            
-    def getBelongsToInfo(self, foreign_key):
-        
-        cls = self.__class__
-        _belongs_to = cls._belongs_to
-        
-        if _belongs_to.has_key(foreign_key):
-            (foreign_primary_key, foreign_class) = _belongs_to.get(foreign_key)
-            
-            if type(foreign_primary_key) == tuple:
-                foreign_value = tuple([ object.__getattribute__(self, key)  for key in foreign_primary_key])
-            else:
-                foreign_value = object.__getattribute__(self, foreign_primary_key)
-                
-            return foreign_primary_key, foreign_class, foreign_value
-        
-        return None, None, None
             
     def isNew(self):
         return self._is_new
@@ -249,17 +230,53 @@ class Entity(object):
     @classmethod
     def primaryKey(cls):
         return cls._primary_key
+    
+    @classmethod
+    def getFields(cls, is_belongs_to=False):
+        if True or not hasattr(cls, '_fields') or not hasattr(cls, '_belongs_to_fields'):
+            attrs_names = dir(cls)
+            fields = {}
+            belongs_to_fields = {}
+            for attr_name in attrs_names:
+                attr_value = getattr(cls, attr_name)
+                if isinstance(attr_value, XField):
+                    fields[attr_name] = attr_value
+                    if not attr_value.column:
+                        attr_value.column = attr_name
+                elif isinstance(attr_value, XBelongsToField):
+                    belongs_to_fields[attr_name] = attr_value
+                    
+            cls._fields = fields
+            cls._belongs_to_fields = belongs_to_fields
+            
+        if is_belongs_to:
+            return cls._belongs_to_fields
+        else:
+            return cls._fields
+    
+    @classmethod
+    def hasField(cls, name):
+        return cls.getFields().has_key(name)
         
     @classmethod
-    def defaultValues(cls, k):
-        return cls._default_values.get(k)
+    def getBelongsToField(cls):
+        return cls.getFields(True)
+    
+    @classmethod
+    def hasBelongsToField(cls, name):
+        return cls.getFields(True).has_key(name)
+    
+    @classmethod
+    def getBelongsToFieldByName(cls, name):
+        return cls.getBelongsToField()[name]
         
     @classmethod
-    def allKeys(cls):
-        if not hasattr(cls, '_all_keys'):
-            cls._all_keys = [cls._primary_key]
-            cls._all_keys.extend(cls._keys)
-        return cls._all_keys
+    def getColumns(cls):
+        return [f.column for f in cls.getFields().values()]
+    
+    @classmethod
+    def getFieldByName(cls, name):
+        return cls.getFields()[name]
     
     @classmethod
     def get(cls, entity_id):
@@ -314,13 +331,6 @@ class MultiIdEntity(Entity):
         entity = cls(**kwargs)
         unitofwork.register(entity)
         return entity
-        
-    @classmethod
-    def allKeys(cls):
-        if not hasattr(cls, '_all_keys'):
-            cls._all_keys = list(cls._primary_key)
-            cls._all_keys.extend(cls._keys)
-        return cls._all_keys
     
     @classmethod
     def get(cls, **kwargs):

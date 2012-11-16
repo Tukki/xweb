@@ -26,7 +26,7 @@ class DBConnection:
     
     def createEntity(self, cls, row):
         kwargs = {}
-        for k, v in zip(cls.allKeys(), row):
+        for k, v in zip(cls.getFields(), row):
             kwargs[k] = v
         entity = cls(**kwargs)
         entity._is_new = False
@@ -47,8 +47,8 @@ class DBConnection:
             cursor.close()
             self.last_time = time.time()
             t= time.time() - t
-            logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
-                    str(values), n, t*1000))
+            logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
+                    str(values[:10]), n, t*1000))
         
         return n > 0
     
@@ -62,8 +62,8 @@ class DBConnection:
             self.last_time = time.time()
             row = cursor.fetchone()
             t= time.time() - t
-            logging.debug("sql: \"%s\", params: %s, time: %.1fms"%(sql,
-                    str(args), t*1000))
+            logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
+                    str(args[:10]), t*1000))
             return row
         finally:
             cursor.close()
@@ -80,7 +80,7 @@ class DBConnection:
             self.last_time = time.time()
             row = cursor.fetchall()
             t = time.time() - t
-            logging.debug("sql: \"%s\", params: %s, rows: %s, time: %.1fms"%(sql,
+            logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
                     str(args[:10]), len(row), t*1000))
             return row
         finally:

@@ -79,9 +79,10 @@ class MySQLDBConnection(DBConnection):
         
         primary_key = cls.primaryKey()
         
+        columns = ["`%s`"%c for c in cls.getColumns()]
         if type(primary_key) == str:
         
-            sql = "select %s from `%s` where `%s`=%%s limit 1"%(",".join(cls.allKeys()),
+            sql = "SELECT %s FROM `%s` WHERE `%s`=%%s limit 1"%(",".join(columns),
                 cls.tableName(), primary_key)
             
             value = (entity_id, )
@@ -90,7 +91,7 @@ class MySQLDBConnection(DBConnection):
             
             where_clause, value = generate_where_clause(primary_key, entity_id)
         
-            sql = "select %s from `%s` where %s limit 1"%(",".join(cls.allKeys()),
+            sql = "SELECT %s FROM `%s` WHERE %s limit 1"%(",".join(columns),
                 cls.tableName(), where_clause)
             
         row = self.fetchRow(sql, *value)
@@ -98,19 +99,14 @@ class MySQLDBConnection(DBConnection):
         if not row:
             return None
         
-        kwargs = {}
-        for k, v in zip(cls.allKeys(), row):
-            kwargs[k] = v
-        
         return self.createEntity(cls, row)
           
     def fetchEntityIds(self, cls, condition, args=[]):
         
         primary_key = cls.primaryKey()
-        
         if type(primary_key) == str:
             
-            sql = "select %s from `%s` where %s"%(primary_key,
+            sql = "SELECT `%s` FROM `%s` WHERE %s"%(primary_key,
                 cls.tableName(), condition or '1=1')
             
             args = tuple(args)
@@ -122,7 +118,7 @@ class MySQLDBConnection(DBConnection):
             return [r[0] for r in rows]
         else:
             
-            sql = "select %s from `%s` where %s"%( ",".join(primary_key),
+            sql = "SELECT %s FROM `%s` WHERE %s"%( ",".join(primary_key),
                 cls.tableName(), condition or '1=1')
             
         
@@ -137,7 +133,8 @@ class MySQLDBConnection(DBConnection):
         
     def queryRowsByCond(self, cls, condition, args=[]):
         
-        sql = "select `%s` from `%s` where %s"%( "`,`".join(cls.allKeys()),
+        columns = ["`%s`"%c for c in cls.getColumns()]
+        sql = "SELECT `%s` FROM `%s` WHERE %s"%( "`,`".join(columns),
             cls.tableName(), condition or '1=1')
         
         args = tuple(args)
@@ -160,7 +157,8 @@ class MySQLDBConnection(DBConnection):
             keys.append("%s")
             values.append(id)
         
-        sql = "select %s from `%s` where `%s` in(%s)"%(",".join(cls.allKeys()),
+        columns = ["`%s`"%c for c in cls.getColumns()]
+        sql = "SELECT %s FROM `%s` WHERE `%s` IN(%s)"%(",".join(columns),
             cls.tableName(), cls.primaryKey(), ','.join(keys))
         
         args = tuple(values)
@@ -187,8 +185,8 @@ class MySQLDBConnection(DBConnection):
         keys = []
         place_holder = []
         values = []
-        for k in entity.allKeys():
-            keys.append("`%s`"%k)
+        for k, field in entity.getFields().items():
+            keys.append("`%s`"%field.column)
             place_holder.append("%s")
             values.append(getattr(entity, k))
             
@@ -215,7 +213,9 @@ class MySQLDBConnection(DBConnection):
         if entity.isNew():
             return False
         
-        table_name = entity.tableName()
+        cls = type(entity)
+        
+        table_name = cls.tableName()
         dirty_keys = entity.dirtyKeys()
         
         sql = "UPDATE `%s` SET "%table_name
@@ -223,12 +223,13 @@ class MySQLDBConnection(DBConnection):
         keys = []
         values = []
         for k in dirty_keys:
-            keys.append("`%s`=%%s"%k)
+            field = cls.getFieldByName(k)
+            keys.append("`%s`=%%s"%field.column)
             values.append(getattr(entity, k))
             
         sql += ",".join(keys)
         
-        primary_key = entity.primaryKey()
+        primary_key = cls.primaryKey()
         where_clause, where_value = generate_where_clause(primary_key, entity.getId())
         
         sql += " WHERE %s LIMIT 1" % where_clause

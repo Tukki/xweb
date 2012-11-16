@@ -1,11 +1,11 @@
 
 
-class Field:
+class XField:
     
     def __init__(self, **kws):
         self.column = kws.get('column')
-        self.default_value = kws.get('default_value')
-        self.can_null = kws.get('can_null', True)
+        self.default_value = kws.get('default')
+        self.can_null = kws.get('null', True)
         
     def _format(self, value):
         raise RuntimeError("Unsupport")
@@ -13,37 +13,41 @@ class Field:
     def format(self, value):
         
         if value is None:
-            return self.default_value
+            if self.default_value is None and not self.can_null:
+                #raise ValueError("%s can not be null", self.column)
+                return None
+            else:
+                return self.default_value
         
         return self._format(value)
 
 
-class StringField(Field):
+class XStringField(XField):
         
     def _format(self, value):
-        if isinstance(value, str):
+        if isinstance(value, unicode):
             return value
         
-        return str(value)
+        return unicode(value)
     
-class IntField(Field):
+class XIntField(XField):
         
     def _format(self, value):
         return int(value)
     
-class LongField(Field):
+class XLongField(XField):
         
     def _format(self, value):
         return long(value)
     
-class FloatField(Field):
+class XFloatField(XField):
         
     def _format(self, value):
         return float(value)
     
 from datetime import datetime
 import time
-class DateTimeField(Field):
+class XDateTimeField(XField):
         
     def _format(self, value):
         if type(value) in [int, long, float]:
@@ -57,6 +61,23 @@ class DateTimeField(Field):
     
         raise ValueError("unsupport type")
     
+class XIdField(XIntField):
     
-class BelongsToField:
-    pass
+    def __init__(self, **kws):
+        self.column = kws.get('column', 'id')
+        self.can_null = False
+        self.default_value = None
+
+class XVersionField(XIntField):
+    
+    def __init__(self, **kws):
+        self.column = kws.get('column', 'version')
+        self.can_null = False
+        self.default_value = 1
+    
+    
+class XBelongsToField:
+    
+    def __init__(self, key, cls):
+        self.key = key
+        self.cls = cls
