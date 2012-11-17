@@ -39,9 +39,8 @@ class DBConnection:
         
         n = 0
         cursor = self.connect().cursor()
-        
+        t = time.time()
         try:
-            t = time.time()
             n = cursor.execute(sql, tuple(values))
         finally:
             cursor.close()
@@ -59,7 +58,6 @@ class DBConnection:
         try:
             t = time.time()
             cursor.execute(sql, args)
-            self.last_time = time.time()
             row = cursor.fetchone()
             t= time.time() - t
             logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
@@ -77,7 +75,6 @@ class DBConnection:
         try:
             t = time.time()
             cursor.execute(sql, args)
-            self.last_time = time.time()
             row = cursor.fetchall()
             t = time.time() - t
             logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,

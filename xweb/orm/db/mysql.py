@@ -13,6 +13,10 @@ from connection import DBConnection
 from xweb.util import logging
 import time
 
+from pymysql.err import raise_mysql_exception, Warning, Error, \
+    InterfaceError, DataError, DatabaseError, OperationalError, \
+    IntegrityError, InternalError, NotSupportedError, ProgrammingError
+
 def generate_where_clause(primary_key, entity_id):
     
     if type(primary_key) == str:
@@ -37,37 +41,30 @@ class MySQLDBConnection(DBConnection):
         
         kwargs = {}
         for k in conf:
-            if k in ['user', 'host', 'passwd', 'db', 'charset', 'port']:
+            if k in ['user', 'host', 'passwd', 'db', 'charset', 'port', 'timeout']:
                 kwargs[k] = conf.get(k)
         self.name = name
         self.desc =  "%s<mysql://%s:%s/%s>"%(self.name, conf.get('host', '127.0.0.1'),
                         conf.get('port', 3306), conf.get('db', 'test'))
         
         self.connect_args = kwargs
-        self.timeout = conf.get('timeout') or 10
-        self.last_time = time.time()
-        
-    def isTimeout(self):
-        return time.time() - self.last_time > self.timeout
         
     def connect(self):
         
-        if hasattr(self, '_conn') and self._conn:
-            if not self.isTimeout():
-                return self._conn
-            else:
-                self._conn.close()
-                logging.debug("reconnect mysql server")
-            
-        self._conn = mysql.connect(**self.connect_args)
-        self._conn.autocommit(False)
-        self.timeout = time.time()
+        if not hasattr(self, '_conn') or not self._conn:
+            self._conn = mysql.connect(**self.connect_args)
+            self._conn.autocommit(True)
+            self._conn.connect_timeout = self.connect_args.get('timeout', 10)
             
         return self._conn;
     
     def begin(self):
         if hasattr(self.connect(), 'begin'):
             self.connect().begin()
+        else:
+            self.execute("BEGIN")
+        logging.debug("开启事务")
+            
         
     def commit(self):
         self.connect().commit()
@@ -242,3 +239,80 @@ class MySQLDBConnection(DBConnection):
     
     def __str__(self):
         return self.desc
+    
+    
+    def ping(self):
+        self._conn.ping()
+
+    
+    def execute(self, sql, values=()):
+        
+        n = 0
+        cursor = self.connect().cursor()
+        try:
+            t = time.time()
+            cnt = 0
+            while cnt < 2:
+                cnt += 1
+                try:
+                    n = cursor.execute(sql, tuple(values))
+                    t= time.time() - t
+                    logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
+                            str(values[:10]), n, t*1000))
+                    return n
+                except InterfaceError:
+                    logging.debug("[XWEB] MYSQL RECONNECT...")
+                    self.ping()
+        finally:
+            cursor.close()
+        
+        return False
+    
+    def fetchRow(self, sql, *args):
+        
+        cursor = self.connect().cursor()
+        try:
+            t = time.time()
+            cnt = 0
+            while cnt < 2:
+                cnt += 1
+                try:
+                    cursor.execute(sql, tuple(args))
+                    row = cursor.fetchone()
+                    t= time.time() - t
+                    logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
+                            str(args[:10]), t*1000))
+                    return row
+                    break
+                except InterfaceError:
+                    logging.debug("[XWEB] MYSQL RECONNECT...")
+                    self.ping()
+        finally:
+            cursor.close()
+            
+        return None
+    
+    def fetchRows(self, sql, *args):
+        
+        cursor = self.connect().cursor()
+        
+        try:
+            t = time.time()
+            cnt = 0
+            while cnt < 2:
+                cnt += 1
+                try:
+                    cursor.execute(sql, tuple(args))
+                    row = cursor.fetchall()
+                    t= time.time() - t
+                    logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
+                            str(args[:10]), t*1000))
+                    return row
+                    break
+                except InterfaceError:
+                    logging.debug("[XWEB] MYSQL RECONNECT...")
+                    self.ping()
+        finally:
+            cursor.close()
+            
+        return None    

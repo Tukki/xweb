@@ -91,6 +91,9 @@ class XController(object):
 
         if self.content_type not in ['json', 'text']:
             self.content_type = 'text'
+            
+    def afterRender(self):
+        pass
 
 
 def settings(mimetype=None, charset=None, read_only=None, use_cache=None, status_code=None):

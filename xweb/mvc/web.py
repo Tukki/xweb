@@ -24,6 +24,27 @@ class XRequest(Request):
     def get(self, key, value=None):
         return self.context.get(key, value)
     
+    def getInt(self, key, value=0):
+        
+        try:
+            return int(self.context.get(key))
+        except:
+            return value
+    
+    def getFloat(self, key, value=0):
+        
+        try:
+            return float(self.context.get(key))
+        except:
+            return value
+    
+    def getLong(self, key, value=0):
+        
+        try:
+            return long(self.context.get(key))
+        except:
+            return value
+    
     @cached_property
     def secure_cookies(self):
         return SecureCookie.load_cookie(self, secret_key=XConfig.get('COOKIE_SECRET_KEY') or 'xweb')

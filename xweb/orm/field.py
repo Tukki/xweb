@@ -33,7 +33,10 @@ class XStringField(XField):
 class XIntField(XField):
         
     def _format(self, value):
-        return int(value)
+        try:
+            return int(value)
+        except:
+            return self.default_value
     
 class XLongField(XField):
         

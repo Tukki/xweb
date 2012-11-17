@@ -21,6 +21,9 @@ class EntityStatusError(Exception):
 class ModifyBasedCacheError(Exception):
     pass
 
+class DBError(Exception):
+    pass
+
 class UnitOfWork(object):
     '''
     工作单元
