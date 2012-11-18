@@ -57,9 +57,8 @@ def generate_clause(c, table_map={}):
             if c.order_by:
                 order_bys = []
                 for cr in c.order_by:
-                    table_name = cr.field.cls.tableName()
-                    alias_table_name = table_map.get(table_name, 't0')
-                    order_bys.append("`%s`.`%s` %s" % (alias_table_name, cr.field.column, cr.type))
+                    alias_tbl_name = get_table_names(cr, table_map)[-1]
+                    order_bys.append("`%s`.`%s` %s" % (alias_tbl_name, cr.field.column, cr.type))
                     
                 
                 sql += " order by %s" % (",".join(order_bys))
