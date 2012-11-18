@@ -34,6 +34,7 @@ XWEB框架是一款基于python语言的Web开发框架
     /www            - www子App
         /controller     - 控制器类
         /templates      - 模板文件夹
+        /static			- 静态文件
     /admin          - admin子App
         /controller
         /templates
