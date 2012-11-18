@@ -16,6 +16,7 @@ import time
 from pymysql.err import raise_mysql_exception, Warning, Error, \
     InterfaceError, DataError, DatabaseError, OperationalError, \
     IntegrityError, InternalError, NotSupportedError, ProgrammingError
+from xweb.orm.field import Criteria
 
 def generate_where_clause(primary_key, entity_id):
     
@@ -27,7 +28,37 @@ def generate_where_clause(primary_key, entity_id):
         value = entity_id
         
     return where_clause, value
+
+
+c_types = dict(eq='=', ne='<>', lt='<', le='<=', gt='>',
+               ge='>=')
+
+def generate_clause(c, table_map={}):
+    
+    if c.type in ['or', 'and']:
+        args = []
+        sqls = []
+        for cr in c.data:
+            sql, arg = generate_clause(cr, table_map)
+            sqls.append(sql)
+            args += arg
         
+        ret = (" %s " % c.type).join(sqls)
+        return "(%s)" % ret, args
+    else:
+    
+        table_name = c.field.cls._table_name
+        if not table_map.has_key(table_name):
+            table_map[table_name] = "t%s" % len(table_map)
+            
+        alias_table_name = table_map.get(table_name)
+        c_type = c_types.get(c.type, c.type)
+        if type(c.data) in [list, tuple]:
+            sql = "%s.%s %s (%s)" % (alias_table_name, c.field.column, c_type, ",".join(["%s"]*len(c.data)))
+            return sql, c.data
+        else:
+            sql = "%s.%s%s%%s" % (alias_table_name, c.field.column, c_type)
+            return sql, [c.data]
         
 
 class MySQLDBConnection(DBConnection):
@@ -97,14 +128,24 @@ class MySQLDBConnection(DBConnection):
             return None
         
         return self.createEntity(cls, row)
-          
-    def fetchEntityIds(self, cls, condition, args=[]):
+    
+    def fetchEntityIds(self, cls, criteria, args=[]):
+        
+        assert isinstance(criteria, Criteria)
+        
+        table_map = {}
+        condition, args = generate_clause(criteria, table_map)
         
         primary_key = cls.primaryKey()
+        table_name = cls.tableName()
+        alias_table_name = table_map.get(table_name)
+        
+        if not alias_table_name:
+            raise ValueError()
+
         if type(primary_key) == str:
-            
-            sql = "SELECT `%s` FROM `%s` WHERE %s"%(primary_key,
-                cls.tableName(), condition or '1=1')
+            sql = "SELECT `%s`.`%s` FROM `%s` WHERE %s"%(alias_table_name, primary_key,
+                table_name, condition or '1=1')
             
             args = tuple(args)
             rows = self.fetchRows(sql, *args)
@@ -115,8 +156,9 @@ class MySQLDBConnection(DBConnection):
             return [r[0] for r in rows]
         else:
             
-            sql = "SELECT %s FROM `%s` WHERE %s"%( ",".join(primary_key),
-                cls.tableName(), condition or '1=1')
+            sql = "SELECT %s FROM `%s` WHERE %s"%( ",".join(["`%s`.`%s`" % (alias_table_name, k) 
+                                                             for k in primary_key]),
+                alias_table_name, condition or '1=1')
             
         
             args = tuple(args)

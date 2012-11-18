@@ -188,7 +188,7 @@ class UnitOfWork(object):
         entity_ids = connection.fetchEntityIds(cls, condition, args)
         
         return self.getList(cls, entity_ids, **kwargs)
-    
+        
     def getListByCond2(self, cls, condition=None, args=[], **kwargs):
         
         db_conn = cls.dbName(**kwargs)

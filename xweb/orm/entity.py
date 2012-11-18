@@ -2,7 +2,7 @@
 from unitofwork import UnitOfWork
 from xweb.util import logging, BlockProfiler
 from field import XField
-from xweb.orm.field import XBelongsToField
+from xweb.orm.field import XBelongsToField, Criteria
 
 class Entity(object):
     '''
@@ -289,6 +289,10 @@ class Entity(object):
     @classmethod
     def getListByCond(cls, condition='', *args):
         return UnitOfWork.inst().getListByCond(cls, condition, args)
+    
+    @classmethod
+    def filter(cls, *args):
+        return Criteria(None, 'and', args)
     
     
 class ShardingEntity(Entity):

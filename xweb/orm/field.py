@@ -1,11 +1,29 @@
 
 
+class Criteria:
+    
+    def __init__(self, t, data=[], field=None):
+        self.type = t
+        self.data = data
+        self.field = field
+        
+    def filter(self, *args):
+        self.data += args
+        return self
+        
+def or_(*args):
+    return Criteria('or', args)
+
+def and_(*args):
+    return Criteria('and', args)
+
 class XField:
     
     def __init__(self, **kws):
         self.column = kws.get('column')
         self.default_value = kws.get('default')
         self.can_null = kws.get('null', True)
+        self.cls = None
         
     def _format(self, value):
         raise RuntimeError("Unsupport")
@@ -20,6 +38,39 @@ class XField:
                 return self.default_value
         
         return self._format(value)
+    
+    def like(self, s):
+        return Criteria('like', s, self)
+    
+    def in_(self, s):
+        return Criteria('in', s, self)
+    
+    def between(self, s, s1):
+        return Criteria('between', (s, s1), self)
+    
+    def not_like(self, s):
+        return Criteria('not like', s, self)
+    
+    def not_in(self, s):
+        return Criteria('not in', s, self)
+    
+    def __eq__(self, s):
+        return Criteria('eq', s, self)
+    
+    def __lt__(self, s):
+        return Criteria('lt', s, self)
+    
+    def __le__(self, s):
+        return Criteria('le', s, self)
+    
+    def __gt__(self, s):
+        return Criteria('gt', s, self)
+    
+    def __ge__(self, s):
+        return Criteria('ge', s, self)
+    
+    def __ne__(self, s):
+        return Criteria('ne', s, self)
 
 
 class XStringField(XField):
