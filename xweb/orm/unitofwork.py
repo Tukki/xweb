@@ -13,6 +13,7 @@ from cache import CacheManager
 from idgenerator import IdGenerator
 
 from xweb.config import XConfig
+from xweb.orm.field import QueryCriteria
 
 
 class EntityStatusError(Exception):
@@ -181,13 +182,24 @@ class UnitOfWork(object):
             
         return [self.getEntityInMemory(cls, entity_id) for entity_id in entity_ids if self.getEntityInMemory(cls, entity_id)]
     
-    def getListByCond(self, cls, condition=None, args=[], **kwargs):
+    def getListByCond(self, criteria, **kwargs):
+        
+        assert isinstance(criteria, QueryCriteria)
+        cls = criteria.entity_cls
         
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
-        entity_ids = connection.fetchEntityIds(cls, condition, args)
+        entity_ids = connection.fetchEntityIds(criteria)
         
         return self.getList(cls, entity_ids, **kwargs)
+    
+    
+    def fetchRowsByCond(self, cr, **kwargs):
+        
+        cls = cr.entity_cls
+        db_conn = cls.dbName(**kwargs)
+        connection = self.connection_manager.get(db_conn)
+        return connection.fetchRowsByCond(cr)
         
     def getListByCond2(self, cls, condition=None, args=[], **kwargs):
         

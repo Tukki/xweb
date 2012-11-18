@@ -1,21 +1,103 @@
 
 
 class Criteria:
+    pass
+        
+        
+class WhereCriteria(Criteria):
     
     def __init__(self, t, data=[], field=None):
         self.type = t
         self.data = data
         self.field = field
         
+        
+class AndCriteria(Criteria):
+    
+    def __init__(self, data=[]):
+        self.type = 'and'
+        self.data = data
+        
+        
+class OrCriteria(Criteria):
+    
+    def __init__(self, data=[]):
+        self.type = 'or'
+        self.data = data
+        
+        
+class JoinCriteria(AndCriteria):
+    
+    def __init__(self, entity_cls, data=[]):
+        self.entity_cls = entity_cls
+        self.data = data
+        
+        
+class OderByCriteria(Criteria):
+    
+    def __init__(self, field, t=''):
+        self.field = field
+        self.type = t
+    
+class QueryCriteria(AndCriteria):
+    
+    def __init__(self, entity_cls):
+        self.entity_cls = entity_cls
+        self.select = []
+        self._join = []
+        self.data = []
+        self.order_by = []
+        self._offset = 0
+        self._limit = 0
+        self.type = 'and'
+        
+    def query(self, *args):
+        self.select = args
+        return self
+        
+    def join(self, entity_cls, *args):
+        self._join.append(JoinCriteria(entity_cls, args))
+        return self
+        
     def filter(self, *args):
         self.data += args
         return self
+    
+    def orderBy(self, *args):
+        for a in args:
+            if not isinstance(a, OderByCriteria):
+                a = OderByCriteria(a)
+                
+            self.order_by.append(a)
+            
+        return self
+    
+    def limit(self, limit):
+        self._limit = limit
+        return self
+        
+    def offset(self, offset):
+        self._offset = offset
+        return self
+    
+    def all(self):
+        from xweb.orm.unitofwork import UnitOfWork
+        return UnitOfWork.inst().getListByCond(self)
+    
+    def rows(self):
+        from xweb.orm.unitofwork import UnitOfWork
+        return UnitOfWork.inst().fetchRowsByCond(self)
+    
+        
         
 def or_(*args):
     return Criteria('or', args)
 
 def and_(*args):
     return Criteria('and', args)
+
+def desc(field):
+    return OderByCriteria(field, 'DESC')
 
 class XField:
     
@@ -40,37 +122,37 @@ class XField:
         return self._format(value)
     
     def like(self, s):
-        return Criteria('like', s, self)
+        return WhereCriteria('like', s, self)
     
     def in_(self, s):
-        return Criteria('in', s, self)
+        return WhereCriteria('in', s, self)
     
     def between(self, s, s1):
-        return Criteria('between', (s, s1), self)
+        return WhereCriteria('between', (s, s1), self)
     
     def not_like(self, s):
-        return Criteria('not like', s, self)
+        return WhereCriteria('not like', s, self)
     
     def not_in(self, s):
-        return Criteria('not in', s, self)
+        return WhereCriteria('not in', s, self)
     
     def __eq__(self, s):
-        return Criteria('eq', s, self)
+        return WhereCriteria('eq', s, self)
     
     def __lt__(self, s):
-        return Criteria('lt', s, self)
+        return WhereCriteria('lt', s, self)
     
     def __le__(self, s):
-        return Criteria('le', s, self)
+        return WhereCriteria('le', s, self)
     
     def __gt__(self, s):
-        return Criteria('gt', s, self)
+        return WhereCriteria('gt', s, self)
     
     def __ge__(self, s):
-        return Criteria('ge', s, self)
+        return WhereCriteria('ge', s, self)
     
     def __ne__(self, s):
-        return Criteria('ne', s, self)
+        return WhereCriteria('ne', s, self)
 
 
 class XStringField(XField):

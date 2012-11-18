@@ -2,7 +2,7 @@
 from unitofwork import UnitOfWork
 from xweb.util import logging, BlockProfiler
 from field import XField
-from xweb.orm.field import XBelongsToField, Criteria
+from xweb.orm.field import XBelongsToField, Criteria, QueryCriteria
 
 class Entity(object):
     '''
@@ -231,23 +231,29 @@ class Entity(object):
     def primaryKey(cls):
         return cls._primary_key
     
+    
+    @classmethod
+    def buildModel(cls):
+        attrs_names = dir(cls)
+        fields = {}
+        belongs_to_fields = {}
+        for attr_name in attrs_names:
+            attr_value = getattr(cls, attr_name)
+            if isinstance(attr_value, XField):
+                fields[attr_name] = attr_value
+                if not attr_value.column:
+                    attr_value.column = attr_name
+                    
+                attr_value.cls = cls
+                
+            elif isinstance(attr_value, XBelongsToField):
+                belongs_to_fields[attr_name] = attr_value
+                
+        cls._fields = fields
+        cls._belongs_to_fields = belongs_to_fields
+    
     @classmethod
     def getFields(cls, is_belongs_to=False):
-        if True or not hasattr(cls, '_fields') or not hasattr(cls, '_belongs_to_fields'):
-            attrs_names = dir(cls)
-            fields = {}
-            belongs_to_fields = {}
-            for attr_name in attrs_names:
-                attr_value = getattr(cls, attr_name)
-                if isinstance(attr_value, XField):
-                    fields[attr_name] = attr_value
-                    if not attr_value.column:
-                        attr_value.column = attr_name
-                elif isinstance(attr_value, XBelongsToField):
-                    belongs_to_fields[attr_name] = attr_value
-                    
-            cls._fields = fields
-            cls._belongs_to_fields = belongs_to_fields
             
         if is_belongs_to:
             return cls._belongs_to_fields
@@ -287,12 +293,24 @@ class Entity(object):
         return UnitOfWork.inst().getList(cls, entity_ids)
     
     @classmethod
-    def getListByCond(cls, condition='', *args):
-        return UnitOfWork.inst().getListByCond(cls, condition, args)
+    def getListByCond(cls, *args, **kws):
+        cr = QueryCriteria(cls).filter(*args)
+        
+        if kws.has_key('limit'):
+            cr.limit(int(kws['limit']))
+        
+        if kws.has_key('offset'):
+            cr.offset(int(kws['offset']))
+            
+        return UnitOfWork.inst().getListByCond(cr)
+    
+    @classmethod
+    def query(cls, *args):
+        return QueryCriteria(cls).query(*args)
     
     @classmethod
     def filter(cls, *args):
-        return Criteria(None, 'and', args)
+        return QueryCriteria(cls).filter(*args)
     
     
 class ShardingEntity(Entity):
