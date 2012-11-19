@@ -27,18 +27,18 @@ XWEB框架是一款基于python语言的Web开发框架
 1. 每个域名一个App，启动单独的uwsgi，如需要泛域名、静态化等需求，请在nginx层处理。
 2. 一组App组成一个站点，其共用领域实体类，Service等，但是有各自的controllers和templates，如：www、admin等。目录结构如下：
 
-    /domain         - 领域文件夹
-        /entity         - 领域实体类
-        /object         - 非领域实体类
-        /service        - 领域服务类
-    /www            - www子App
-        /controller     - 控制器类
-        /templates      - 模板文件夹
-        /static			- 静态文件
-    /admin          - admin子App
-        /controller
-        /templates
-    /config         - 配置文件目录
+	    /domain         - 领域文件夹
+	        /entity         - 领域实体类
+	        /object         - 非领域实体类
+	        /service        - 领域服务类
+	    /www            - www子App
+	        /controller     - 控制器类
+	        /templates      - 模板文件夹
+	        /static			- 静态文件
+	    /admin          - admin子App
+	        /controller
+	        /templates
+	    /config         - 配置文件目录
 
 3. App只负责业务逻辑和展示页面，数据库操作、基本的缓存等由框架负责处理，一般情况下，程序员不需要关心。
 
