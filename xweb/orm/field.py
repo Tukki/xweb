@@ -38,6 +38,14 @@ class OderByCriteria(Criteria):
     def __init__(self, field, t=''):
         self.field = field
         self.type = t
+
+        
+class SelectCriteria(Criteria):
+    
+    def __init__(self, t, data):
+        self.data = data
+        self.type = t
+
     
 class QueryCriteria(AndCriteria):
     
@@ -84,11 +92,30 @@ class QueryCriteria(AndCriteria):
         from xweb.orm.unitofwork import UnitOfWork
         return UnitOfWork.inst().getListByCond(self)
     
+    def first(self):
+        from xweb.orm.unitofwork import UnitOfWork
+        self.limit(1)
+        result = UnitOfWork.inst().getListByCond(self)
+        if result:
+            return result[0]
+        
+        return None
+    
     def rows(self):
         from xweb.orm.unitofwork import UnitOfWork
         return UnitOfWork.inst().fetchRowsByCond(self)
-    
         
+    def row(self):
+        from xweb.orm.unitofwork import UnitOfWork
+        return UnitOfWork.inst().fetchRowByCond(self)
+        
+    def one(self):
+        from xweb.orm.unitofwork import UnitOfWork
+        result = UnitOfWork.inst().fetchRowByCond(self)
+        if result:
+            return result[0]
+        
+        return None
         
 def or_(*args):
     return Criteria('or', args)
@@ -98,6 +125,9 @@ def and_(*args):
 
 def desc(field):
     return OderByCriteria(field, 'DESC')
+
+def count(data="1"):
+    return SelectCriteria('count', data)
 
 class XField:
     

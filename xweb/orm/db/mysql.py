@@ -16,7 +16,8 @@ import time
 from pymysql.err import raise_mysql_exception, Warning, Error, \
     InterfaceError, DataError, DatabaseError, OperationalError, \
     IntegrityError, InternalError, NotSupportedError, ProgrammingError
-from xweb.orm.field import Criteria, QueryCriteria, WhereCriteria, XField
+from xweb.orm.field import Criteria, QueryCriteria, WhereCriteria, XField,\
+    SelectCriteria
 from xweb.orm.entity import Entity
 
 def generate_where_clause(primary_key, entity_id):
@@ -153,9 +154,24 @@ def generate_select_clause(cr, table_map):
         return "*"
     
     sqls = []
-    for field in cr.select:
-        tbl_name = get_table_names(field, table_map)[-1]
-        sql = "`%s`.`%s` as `%s_%s`" % (tbl_name, field.column, tbl_name, field.column)
+    for sfc in cr.select:
+        
+        if isinstance(sfc, XField):
+            field = sfc
+            tbl_name = get_table_names(field, table_map)[-1]
+            sql = "`%s`.`%s` as `%s_%s`" % (tbl_name, field.column, tbl_name, field.column)
+        elif isinstance(sfc, SelectCriteria):
+            if sfc.type in ['count', 'sum']:
+                if isinstance(sfc.data, XField):
+                    field = sfc.data
+                    tbl_name = get_table_names(field, table_map)[-1]
+                    sql = "%s(`%s`.`%s`) as %s_%s_%s" % (sfc.type.upper(), tbl_name, field.column,
+                                                      sfc.type.lower(), tbl_name, field.column,)
+                else:
+                    sql = "%s(%s)" % (sfc.type.upper(), sfc.data)
+                    
+            else:
+                continue
         
         sqls.append(sql)
     
@@ -289,6 +305,34 @@ class MySQLDBConnection(DBConnection):
             return []
         
         return rows
+        
+    def fetchRowByCond(self, criteria):
+        
+        assert isinstance(criteria, QueryCriteria)
+        tbl_name = criteria.entity_cls.tableName()
+        table_map = {}
+        table_map[tbl_name] = 't0'
+        joins = []
+        args = []
+        if criteria._join:
+            for j in criteria._join:
+                sql, arg = generate_join_clause(j, table_map)
+                joins.append(sql)
+                args += arg
+                
+            join_sql = " ".join(joins)
+        else:
+            join_sql = ""
+                
+        where_sql, arg = generate_clause(criteria, table_map)
+        args += arg
+        
+        select_sql = generate_select_clause(criteria, table_map)
+        
+        sql = "SELECT %s FROM `%s` as t0 %s %s" % (select_sql, tbl_name, join_sql, where_sql)
+        
+        args = tuple(args)
+        return self.fetchRow(sql, *args)
         
     def fetchRowsByCond(self, criteria):
         
@@ -438,7 +482,7 @@ class MySQLDBConnection(DBConnection):
                 try:
                     n = cursor.execute(sql, tuple(values))
                     t= time.time() - t
-                    logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
+                    logging.debug("[XWEB] FETCH ROWS SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
                             str(values[:10]), n, t*1000))
                     return n
                 except InterfaceError:
@@ -461,7 +505,7 @@ class MySQLDBConnection(DBConnection):
                     cursor.execute(sql, tuple(args))
                     row = cursor.fetchone()
                     t= time.time() - t
-                    logging.debug("[XWEB] SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
+                    logging.debug("[XWEB] FETCH ROW SQL: \"%s\", PARAMS: %s, TIME: %.1fms"%(sql,
                             str(args[:10]), t*1000))
                     return row
                     break

@@ -200,6 +200,14 @@ class UnitOfWork(object):
         db_conn = cls.dbName(**kwargs)
         connection = self.connection_manager.get(db_conn)
         return connection.fetchRowsByCond(cr)
+    
+    
+    def fetchRowByCond(self, cr, **kwargs):
+        
+        cls = cr.entity_cls
+        db_conn = cls.dbName(**kwargs)
+        connection = self.connection_manager.get(db_conn)
+        return connection.fetchRowByCond(cr)
         
     def getListByCond2(self, cls, condition=None, args=[], **kwargs):
         
