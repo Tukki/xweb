@@ -6,7 +6,7 @@ Created on 2012-7-5
 '''
 try:
     import MySQLdb as mysql
-    from MySQLdb.connectios import InterfaceError, OperationalError
+    from MySQLdb import InterfaceError, OperationalError
 except ImportError:
     import pymysql as mysql
     from pymysql.err import InterfaceError, OperationalError
