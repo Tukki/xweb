@@ -5,17 +5,17 @@ Created on 2012-7-5
 @author: lifei
 '''
 try:
-    import pymysql as mysql
-except ImportError:
     import MySQLdb as mysql
+    from MySQLdb.connectios import InterfaceError, OperationalError
+except ImportError:
+    import pymysql as mysql
+    from pymysql.err import InterfaceError, OperationalError
+    
     
 from connection import DBConnection
 from xweb.util import logging
 import time
 
-from pymysql.err import raise_mysql_exception, Warning, Error, \
-    InterfaceError, DataError, DatabaseError, OperationalError, \
-    IntegrityError, InternalError, NotSupportedError, ProgrammingError
 from xweb.orm.field import Criteria, QueryCriteria, WhereCriteria, XField,\
     SelectCriteria
 from xweb.orm.entity import Entity
@@ -485,7 +485,7 @@ class MySQLDBConnection(DBConnection):
                     logging.debug("[XWEB] FETCH ROWS SQL: \"%s\", PARAMS: %s, ROWS: %s, TIME: %.1fms"%(sql,
                             str(values[:10]), n, t*1000))
                     return n
-                except InterfaceError:
+                except InterfaceError, OperationalError:
                     logging.debug("[XWEB] MYSQL RECONNECT...")
                     self.ping()
         finally:
@@ -509,7 +509,7 @@ class MySQLDBConnection(DBConnection):
                             str(args[:10]), t*1000))
                     return row
                     break
-                except InterfaceError:
+                except InterfaceError, OperationalError:
                     logging.debug("[XWEB] MYSQL RECONNECT...")
                     self.ping()
         finally:
@@ -534,7 +534,7 @@ class MySQLDBConnection(DBConnection):
                             str(args[:10]), t*1000))
                     return row
                     break
-                except InterfaceError:
+                except InterfaceError, OperationalError:
                     logging.debug("[XWEB] MYSQL RECONNECT...")
                     self.ping()
         finally:
