@@ -93,7 +93,7 @@ class XController(object):
             self.content_type = 'text'
             
     def afterRender(self):
-        pass
+        UnitOfWork.reset()
 
 
 def settings(mimetype=None, charset=None, read_only=None, use_cache=None, status_code=None):

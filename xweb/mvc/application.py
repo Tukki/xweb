@@ -277,7 +277,6 @@ class XApplication(object):
                     
             finally:
                 controller_instance.afterRender()
-                UnitOfWork.reset()
             
             return controller_instance.response
         

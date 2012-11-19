@@ -320,12 +320,14 @@ class UnitOfWork(object):
         return thread.unitofwork
     
     @classmethod
-    def reset(cls):
+    def reset(cls, force=False):
         thread = threading.currentThread()
         
         if hasattr(thread, 'unitofwork') and thread.unitofwork:
-            unitofwork = thread.unitofwork        
-            unitofwork.entity_list = {}
-            unitofwork.use_cache = True
-            unitofwork.use_preload = False
-            unitofwork.connection_manager.has_loaded = {}
+            if not force:
+                unitofwork = thread.unitofwork
+                unitofwork.entity_list = {}
+                unitofwork.use_cache = True
+                unitofwork.use_preload = False
+            else:
+                del thread.unitofwork
