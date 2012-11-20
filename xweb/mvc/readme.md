@@ -22,23 +22,20 @@ XWEB框架中提到的请求的属性不随请求而变的，Response的属性�
 
 #### XWEB框架对请求属性的处理
 
-在XWEB框架中设置这些属性都非常简单
+在XWEB框架中设置这些属性都非常简单，我们采取了一种非常巧妙的办法让设置这些属性更优雅，当然这种做法有潜在的风险
 
 * 代码: admin.py
 
         class AdminController(XController):
 
-            @settings(mimetype='json', use_cache=False)
-            def doOrder(self):
+            def doOrderApi(self, mimetype='json'):
                 pass
 
-            @settings(read_only=True)
-            def doShowProduct(self):
+            def doShowProduct(self, read_only=True):
                 pass
 
 
-            @settings(charset='gbk', mimetype='xml')
-            def doApi4GBK(self):
+            def doApi4GBK(self, charset='gbk'):
                 pass
 
             def doView(self):
@@ -82,8 +79,16 @@ XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能
         AdminController(XController):
 
             def handleException(self,**kwargs):
-                self.setStatusCode('200')
-                self.data = self.app.render('error/index.html', {})
+            '''异常处理
+            如果其类型是JSON，如API，或者是AJAX调用，则返回JSON格式的错误
+            当然有些时候，API或者AJAX也可以直接返回500错误
+            如果不是JSON格式的，则返回一个美化过的500页面
+            '''
+            
+            	if self.content_type == 'json' or self.is_xhr:
+            		self.json['code'] = 0
+        		else:
+	                self.data = self.app.render('error/index.html', {})
 
 
 ###App的结构
@@ -105,7 +110,9 @@ XWEB框架认为类的继承可以实现拦截器、MiddleWare等设计的功能
             
 ####多个App共用一个wsgi
 
-如果是多个子项目共用一个uwsgi，则入口代码可以写成：
+如果是多个子项目共用一个uwsgi，则入口代码可以写成（调试）：
+
+生产环境部署可有使用NGINX反响代理来代替SubDomainDispatcherMiddleware
 
 * 代码: __init__.py
 
