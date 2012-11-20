@@ -38,19 +38,17 @@ v1.0 2012-06-08
         
 * 代码：domain.py
 
+		@entity
         class City(Entity):
             
             name = XStringField()
-            
-        City.buildModel()
-            
+        
+        @entity    
         class User(Entity):
         
             name = XStringField()
             city_id = XIntField()
             city = XBelongsToField('city_id', City)
-            
-        User.buildModel()
     
 * 代码：console.py
     
