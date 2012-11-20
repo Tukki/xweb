@@ -42,6 +42,8 @@ class XController(object):
         self.action         = 'index'
         
         self.context['controller']  = self
+        self.context['this']  = self
+        self.context['createUrl']  = self.app.createUrl
         
     def getdata(self):
         return self.response.data

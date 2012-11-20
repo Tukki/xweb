@@ -212,15 +212,37 @@ class XApplication(object):
                     return BadRequest('%s.%s is not callable' %(controller_class_name, action_method_name) )
                 
                 kwargs = {}
-                
                 spec = inspect.getargspec(action_method)
-                func_args = spec.args
-                if func_args:
+                func_args = spec.args[1:]
+                
+                for k in func_args:
+                    if request.args.has_key(k):
+                        kwargs[k] = request.args.get(k)
+                
+                # 由函数的默认值获取配置信息
+                if spec.defaults:
+                    defaults = dict(zip(func_args[-(len(spec.defaults)):], spec.defaults))
                     
-                    for k in func_args:
-                        if request.args.has_key(k):
-                            kwargs[k] = request.args.get(k)
-                            
+                    mimetype = defaults.get('mimetype')
+                    if mimetype:
+                        controller_instance.setContentType(mimetype)
+                        
+                    charset = defaults.get('charset')
+                    if charset in ['gbk', 'utf-8', 'iso-9001']:
+                        controller_instance.response.charset = charset
+                    
+                    read_only = defaults.get('read_only')
+                    if read_only is not None:
+                        controller_instance.read_only = read_only
+                        
+                    use_cache = defaults.get('use_cache')
+                    if use_cache is not None:
+                        controller_instance.use_cache = use_cache
+                    
+                    status_code = defaults.get('status_code')
+                    if status_code:
+                        controller_instance.response.status_code = status_code
+                        
             except (ImportError, AttributeError) as ex:
                 logging.exception("Can't find the method to process")
                 return BadRequest('SEARCH METHOD ERROR %s' % ex)
@@ -336,6 +358,11 @@ class XApplication(object):
             self.rewrite_rules.append(XRewriteRule(*rule))
         
     def createUrl(self, route, **params):
+        '''创建基于XWEB MVC规则的URL
+        
+        @param route: 访问的route，格式为 <controller>/<action>
+        @param param: 相应的参数
+        '''
         for rule in self.rewrite_rules:
             url = rule.createUrl(route, params)
             

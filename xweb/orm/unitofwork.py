@@ -73,17 +73,20 @@ class UnitOfWork(object):
         for entity_class_name in self.entity_list:
             entity_dict = self.entity_list.get(entity_class_name)
             
-            for entity_id in entity_dict:
+            for entity_id in entity_dict.keys():
                 entity = entity_dict.get(entity_id)
                 if entity.isLoadedFromCache():
                     raise ModifyBasedCacheError("%s(%s) is loaded from cache, so can't be modified!!"%(
                         entity.__class__.__name__, entity.id))
                 
                 if entity.isDelete():
+                    entity.onDelete()
                     deletes.append(entity)
                 elif entity.isNew():
+                    entity.onNew()
                     news.append(entity)
                 elif entity.isDirty():
+                    entity.onUpdate()
                     updates.append(entity)
                 else:
                     continue
@@ -280,21 +283,18 @@ class UnitOfWork(object):
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = False
-                entity.onNew()
                 return  True
         elif entity.isDelete():
             if connection.delete(entity):
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = True
-                entity.onDelete()
                 return  True
         elif entity.isDirty():
             if connection.update(entity):
                 entity._is_dirty = False
                 entity._is_new = False
                 entity.is_delete = False
-                entity.onUpdate()
                 return True
         else:
             raise EntityStatusError()
