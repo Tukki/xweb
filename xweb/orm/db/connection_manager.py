@@ -19,14 +19,12 @@ class ConnectionManager:
         self.conf = conf
         self.connections = {}
         
-    def get(self, name='default', read_only=True):
+    def get(self, name='default', read_only=False):
         
-        if not read_only:
-            db_name = "%s_write" % name
-        else:
-            db_name = name
+        if read_only:
+            name = "%s_read" % name
             
-        if not self.conf.has_key(db_name):
+        if not self.conf.has_key(name):
             if not self.conf.has_key('default'):
                 raise DefaultDBNotExists()
             return self.get('default')
@@ -44,7 +42,7 @@ class ConnectionManager:
             
             conn = cls(name, conf)
             self.connections[name] = conn
-            logging.debug("init db connection: %s"%conn)
+            logging.debug("[XWEB] INIT DB CONNECTION: %s", conn)
             
         return self.connections.get(name)
     

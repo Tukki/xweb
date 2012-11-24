@@ -41,10 +41,14 @@ class CacheManager:
     '''
     
     def __init__(self, conf):
+        
         self.conf = conf
         self.caches = {}
         
     def get(self, name):
+        if not self.conf:
+            return None
+        
         if not self.conf.has_key(name):
             return self.get('default')
         

@@ -6,6 +6,7 @@
 
 from xweb.orm import UnitOfWork
 from xweb.mvc.web import XResponse
+import logging
 
 content_type_map = {
     'json': 'application/json',
@@ -25,7 +26,7 @@ class XController(object):
         self.response = XResponse()
         self.app = application
         
-        self.setContentType('html')
+        self.mimetype = 'html'
         self.charset = self.response.charset
         
         # 识别这个请求是否是只读的
@@ -34,7 +35,6 @@ class XController(object):
         # for short
         self.createUrl      = self.app.createUrl
         self.headers        = self.response.headers
-        self.mimetype       = self.response.mimetype
         self.setCookies     = self.response.set_cookie
         self.secure_cookies = self.request.secure_cookies
         self.context        = self.request.context
@@ -52,7 +52,25 @@ class XController(object):
         self.response.data = text
         
     data = property(getdata, setdata, None, "输出的data")
-
+    
+    def getstatuscode(self):
+        return self.response.status_code
+    
+    def setstatuscode(self, code):
+        self.response.status_code = code
+        
+    status_code = property(getstatuscode, setstatuscode, 200, 200)
+    
+    def getmimetype(self):
+        return self.content_type
+    
+    def setmimetype(self, mimetype):
+        self.content_type = mimetype
+        header = content_type_map.get(mimetype, 'text/html')
+        self.response.mimetype = header
+    
+    mimetype = property(getmimetype, setmimetype, "text/html", "text/html")
+    
     def commit(self):
         return not self.read_only and self.unitofwork.commit()
         
@@ -71,15 +89,6 @@ class XController(object):
         else:
             self.data += str(text)
         
-    def setContentType(self, content_type):
-        self.content_type = content_type
-        header = content_type_map.get(content_type, 'text/plain')
-        self.response.mimetype = header
-
-    def setStatusCode(self, code, desc=None):
-        self.response.status_code = code
-        self.context['description'] = desc
-        
     def redirect(self, url):
         self.response.status_code = 302
         self.response.location = url
@@ -88,34 +97,14 @@ class XController(object):
         self.response.status_code = 301
         self.response.location = url
 
-    def end(self):
+    def end(self, status_code=200, message=None):
         self.read_only = True
-
         if self.content_type not in ['json', 'text']:
             self.content_type = 'text'
+        
+        self.status_code = status_code
+        if status_code > 400:
+            self.context['description'] = message
             
     def afterRender(self):
         UnitOfWork.reset()
-
-
-def settings(mimetype=None, charset=None, read_only=None, use_cache=None, status_code=None):
-    def _func(func):
-        def __func(self, *args, **kwargs):
-            if mimetype is not None:
-                self.setContentType(mimetype)
-
-            if charset is not None:
-                self.response.charset = charset
-
-            if read_only is not None:
-                self.read_only = read_only
-
-            if use_cache is not None:
-                self.use_cache = use_cache
-
-            if status_code is not None:
-                self.response.status_code = status_code
-
-            return func(self, *args, **kwargs)
-        return __func
-    return _func

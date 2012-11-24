@@ -111,6 +111,9 @@ class UnitOfWork(object):
             for entity in deletes:
                 try:
                     cache = self.cache_manager.get(entity._cache)
+                    if not cache:
+                        continue
+                    
                     cache_key = self.makeKey(entity.__class__, entity.id)
                     cache.delete(cache_key)
                 except:
@@ -120,6 +123,8 @@ class UnitOfWork(object):
                 for entity in entitys:
                     try:
                         cache = self.cache_manager.get(entity._cache)
+                        if not cache:
+                            continue
                         cache_key = self.makeKey(entity.__class__, entity.id)
                         cache.set(cache_key, entity)
                     except:
@@ -160,6 +165,8 @@ class UnitOfWork(object):
             
             cache_name = cls.cacheName(**kwargs)
             cache = self.cache_manager.get(cache_name)
+            if not cache:
+                raise ValueError('CACHE DOES NOT EXSITS WHEN USE_CACHE IS TRUE')
             
             entitys = cache.getList(keys)
             entity_id_and_keys = zip(not_found_ids, keys)
@@ -187,7 +194,9 @@ class UnitOfWork(object):
     
     def getListByCond(self, criteria, **kwargs):
         
-        assert isinstance(criteria, QueryCriteria)
+        if not isinstance(criteria, QueryCriteria):
+            return []
+        
         cls = criteria.entity_cls
         
         db_conn = cls.dbName(**kwargs)
@@ -237,7 +246,8 @@ class UnitOfWork(object):
                 key = self.makeKey(cls, entity_id)
                 cache_name = cls.cacheName(key=key, entity_id=entity_id, **kwargs)
                 cache = self.cache_manager.get(cache_name)
-                cache.set(key, entity)
+                if cache:
+                    cache.set(key, entity)
                 
             results.append(entity)
                 
@@ -246,14 +256,14 @@ class UnitOfWork(object):
     
     def get(self, cls, entity_id, **kwargs): #@ReservedAssignment
         
+        entity = self.getEntityInMemory(cls, entity_id)
+        if entity:
+            return entity
+        
         key = self.makeKey(cls, entity_id)
         cache_name = cls.cacheName(entity_id=entity_id, **kwargs)
         cache = self.cache_manager.get(cache_name)
-
         if self.use_cache:
-            entity = self.getEntityInMemory(cls, entity_id)
-            if entity:
-                return entity
             
             entity = cache.get(key)
             if entity:
@@ -269,8 +279,10 @@ class UnitOfWork(object):
             return None
         
         self.register(entity)
-        cache.set(key, entity)
-        logging.debug("load entity %s from db: %s"%(entity, db_conn))
+        
+        if cache:
+            cache.set(key, entity)
+            logging.debug("load entity %s from db: %s"%(entity, db_conn))
         
         return entity
         

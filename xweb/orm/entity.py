@@ -235,7 +235,7 @@ class Entity(object):
     @classmethod
     def buildModel(cls):
         '''
-        @deprecated: 请使用@entity
+        @deprecated: 请使用@register
         '''
         attrs_names = dir(cls)
         fields = {}
@@ -369,25 +369,3 @@ class MultiIdEntity(Entity):
     def getListByCond(cls, condition, *args, **kwargs):
         return UnitOfWork.inst().getListByCond2(cls, condition, args, **kwargs)
     
-    
-def entity(cls):
-    
-    attrs_names = dir(cls)
-    fields = {}
-    belongs_to_fields = {}
-    for attr_name in attrs_names:
-        attr_value = getattr(cls, attr_name)
-        if isinstance(attr_value, XField):
-            fields[attr_name] = attr_value
-            if not attr_value.column:
-                attr_value.column = attr_name
-                
-            attr_value.cls = cls
-            
-        elif isinstance(attr_value, XBelongsToField):
-            belongs_to_fields[attr_name] = attr_value
-            
-    cls._fields = fields
-    cls._belongs_to_fields = belongs_to_fields
-    
-    return cls

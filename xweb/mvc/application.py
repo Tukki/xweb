@@ -1,5 +1,4 @@
-# coding: utf8
-
+# coding: utf-8
 import re
 import sys
 import inspect
@@ -9,7 +8,7 @@ import json
 
 from werkzeug.debug import DebuggedApplication
 from werkzeug.serving import run_simple, make_server
-from werkzeug.contrib.sessions import SessionMiddleware, FilesystemSessionStore
+from werkzeug.contrib.sessions import SessionMiddleware
 from werkzeug.wsgi import SharedDataMiddleware
 from werkzeug.contrib.lint import LintMiddleware
 from werkzeug.contrib.profiler import ProfilerMiddleware
@@ -27,9 +26,6 @@ from xweb.orm.unitofwork import DBError
 
 re.compile("\(\?P<([^>]+)>\)")
 keys_regex = re.compile('<([^|>]+)(?:\|([^>]+))?>', re.DOTALL)
-
-session_store = FilesystemSessionStore()
-
 
 class XRewriteRule:
     
@@ -130,40 +126,33 @@ class XApplication(object):
     Application类
     @author: lifei <lifei@7v1.net>
     '''
+
+    CONTROLLERS = {}
     
-    def __init__(self, sub_app_name, base_path=''):
+    def __init__(self, sub_app_name, base_path='', static_root='static'):
 
         self.sub_app_name = sub_app_name
         self.use_debuger = False
-        if base_path:
-            template_path = "%s/%s/templates" % (base_path, self.sub_app_name)
+        
+        if not base_path:
+            self.base_path = '.'
         else:
-            template_path = "%s/templates" % (self.sub_app_name)
-
+            if base_path.endswith("/"):
+                self.base_path = base_path[:-1]
+            else:
+                self.base_path = base_path
+                
+        self.base_path = os.path.abspath(self.base_path)
+                
+        template_path = "%s/%s/templates" % (self.base_path, self.sub_app_name)
         if not os.path.isdir(template_path):
             raise Exception('template_path %s not found' % template_path)
         
         self.jinja_env = Environment(loader=FileSystemLoader(template_path), autoescape=True)
-        self.www_module         = self.importModule()
-        self.controller_module  = self.importModule('controller')
         
         self.rewrite_rules = []
         self.createRewriteRules()
-        
-    def importModule(self, module_name=''):        
-        if module_name:
-            module_path = "%s.%s" % (self.sub_app_name, module_name)
-        else:
-            module_path = self.sub_app_name
-            
-        app_module = sys.modules.get(module_path)
-        
-        if not app_module:
-            __import__(module_path)
-            return sys.modules.get(module_path)
-        
-        return app_module
-        
+        self.static_root = static_root
             
     def createRequest(self, environ):
         
@@ -191,19 +180,20 @@ class XApplication(object):
             action     = action.lower()
 
             try:
-
+                
                 controller_class_name = controller.title().replace('_', '') + 'Controller'
-                if not hasattr(self.controller_module, controller_class_name):
+                if not XApplication.CONTROLLERS.has_key(controller_class_name):
                     return BadRequest('CONTROLLER NOT FOUND %s' % controller_class_name)
                     
-                controller_class = getattr(self.controller_module, controller_class_name)
+                controller_class = XApplication.CONTROLLERS[controller_class_name]
+                if not issubclass(controller_class, XController):
+                    return BadRequest('BAD CONTROLLER CLASS')
+                    
                 controller_instance = controller_class(request, self)
-                
                 if not isinstance(controller_instance, XController):
-                    return BadRequest('CONTROLLER ERROR')
+                    return BadRequest('BAD CONTROLLER INSTANCE')
 
-                action_method_name = 'do%s'%action.title().replace('_', '')
-                
+                action_method_name = 'do%s'%action.replace('_', '')
                 if not hasattr(controller_instance, action_method_name):
                     return BadRequest('METHOD NOT FOUND %s' % action_method_name)
                 
@@ -225,7 +215,7 @@ class XApplication(object):
                     
                     mimetype = defaults.get('mimetype')
                     if mimetype:
-                        controller_instance.setContentType(mimetype)
+                        controller_instance.mimetype = mimetype
                         
                     charset = defaults.get('charset')
                     if charset in ['gbk', 'utf-8', 'iso-9001']:
@@ -337,18 +327,11 @@ class XApplication(object):
         return response(environ, start_response)
         
     def createRewriteRules(self):
-        try:
-            if not self.rewrite_rules and self.www_module:
-                if isinstance(self.www_module.rewrite_rules, list):
-                    self.buildRewrite(self.www_module.rewrite_rules)
-        except:
-            pass
-        finally:
-            self.rewrite_rules.extend([
-                XRewriteRule('/',                  {'c':'default', 'a':'index'}),
-                XRewriteRule('/<c>/',              {'a':'index'}),
-                XRewriteRule('/<c>/<a>/',          {}),
-            ])
+        self.rewrite_rules.extend([
+            XRewriteRule('/',                  {'c':'default', 'a':'index'}),
+            XRewriteRule('/<c>/',              {'a':'index'}),
+            XRewriteRule('/<c>/<a>/',          {}),
+        ])
         
         return self
         
@@ -379,13 +362,14 @@ class XApplication(object):
         thread.start_new_thread(self._reload, ())
         self.use_debuger = True
         app = self.runApp
+        
         app = SharedDataMiddleware(app, {
-            '/static': 'static'
+            '/static': self.static_root
         })
         app = DebuggedApplication(app, evalex=True)
-        run_simple('0.0.0.0', port, app, use_debugger=True)
+        run_simple('0.0.0.0', port, app, use_debugger=True, threaded=True)
         
-    def _reload(self, path='ims3d4py'):
+    def _reload(self):
         mtimes = {}
         
         while 1: 
@@ -394,34 +378,41 @@ class XApplication(object):
                 sub_modules = set()
                 for filename, module, k in _iter_module_files():
                     
+                    filename = os.path.abspath(filename)
+                    
                     try:
                         mtime = os.stat(filename).st_mtime
                     except OSError:
                         continue
                     
-                    if os.path.realpath(filename).find(path) > -1:
-                        sub_modules.add(k)
+                    if filename.find(self.base_path)== -1:
+                        continue
                     
+                    sub_modules.add(k)
                     old_time = mtimes.get(filename)
                     if old_time is None:
                         mtimes[filename] = mtime
                         continue
                     elif mtime > old_time:
-                        logging.info(' * Detected change in %r, reloading', filename)
+                        mtimes[filename] = mtime
+                        if module.__name__ in ['__main__']:
+                            continue
+                        
                         reload(module)
                         has_reload = True
-                        mtimes[filename] = mtime
+                        logging.info(' * Detected change in %r, reloading', filename)
                 
                 if has_reload:
                     for k in sub_modules:
                         
                         if k in ['__main__'] or k not in sys.modules:
                             continue
-                        
                         del sys.modules[k]
+                    
+                    #self.importModule('controller')
+                    for cls in XApplication.CONTROLLERS.values():
+                        __import__(cls.__module__)
                         
-                    self.www_module         = self.importModule()
-                    self.controller_module  = self.importModule('controller')
             except:
                 logging.exception("reload error")
             finally:

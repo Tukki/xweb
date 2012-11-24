@@ -16,9 +16,11 @@ from connection import DBConnection
 from xweb.util import logging
 import time
 
-from xweb.orm.field import Criteria, QueryCriteria, WhereCriteria, XField,\
-    SelectCriteria
+from xweb.orm.field import Criteria, QueryCriteria, XField, SelectCriteria
 from xweb.orm.entity import Entity
+
+c_types = dict(eq='=', ne='<>', lt='<', le='<=', gt='>',
+               ge='>=')
 
 def generate_where_clause(primary_key, entity_id):
     
@@ -31,9 +33,6 @@ def generate_where_clause(primary_key, entity_id):
         
     return where_clause, value
 
-
-c_types = dict(eq='=', ne='<>', lt='<', le='<=', gt='>',
-               ge='>=')
 
 def generate_clause(c, table_map={}):
     
@@ -103,7 +102,6 @@ def get_table_names(m, table_map):
             
         return table_name, table_map.get(table_name)
     
-        
 def generate_join_clause(cr, table_map):
     
     join_tbl_name, join_alias_tbl_name = get_table_names(cr.entity_cls, table_map)
@@ -114,7 +112,7 @@ def generate_join_clause(cr, table_map):
     args = []
     for c in cr.data:
         tbl_name, alias_tbl_name = get_table_names(c.field, table_map)
-        
+        c_type = c_types.get(c.type)
         if isinstance(c.data, XField):
             tbl2_name, alias_tbl2_name = get_table_names(c.data, table_map)
             if alias_tbl2_name == alias_tbl_name:
@@ -123,7 +121,6 @@ def generate_join_clause(cr, table_map):
             if join_tbl_name not in [tbl_name, tbl2_name]:
                 raise ValueError("JOIN需要至少一个表与主表有关联")
             
-            c_type = c_types.get(c.type)
             if not c_type:
                 raise ValueError("ERROR JOIN COMPARE TYPE")
             
@@ -140,7 +137,7 @@ def generate_join_clause(cr, table_map):
                 joins.append(join)
                 args += c.data
             else:
-                join = "`%s`.`%s`%s%%s" % (alias_tbl_name, cr.field.column, c_type)
+                join = "`%s`.`%s`%s%%s" % (alias_tbl_name, c.field.column, c_type)
                 joins.append(join)
                 args.append(c.data)
                 
@@ -172,11 +169,19 @@ def generate_select_clause(cr, table_map):
                     
             else:
                 continue
+        elif issubclass(sfc, Entity):
+            pk = getattr(sfc, sfc.primaryKey(), None)
+            if not pk:
+                continue
+            
+            tbl_name = get_table_names(pk, table_map)[-1]
+            sql = "`%s`.`%s` as `%s_%s`" % (tbl_name, pk.column, tbl_name, pk.column)
         
         sqls.append(sql)
     
     return ",".join(sqls)
         
+
 class MySQLDBConnection(DBConnection):
     """
     MySQL实现
