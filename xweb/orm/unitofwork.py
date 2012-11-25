@@ -39,7 +39,7 @@ class UnitOfWork(object):
         self.entity_list = {}
         self.use_cache = True
         self.use_preload = True
-        self.use_validator = True
+        self.use_validator = False
         self.bad_entitys = []
         
     def idgenerator(self):
