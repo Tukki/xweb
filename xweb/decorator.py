@@ -5,7 +5,7 @@ from xweb.orm import Entity
 from xweb.orm import XField, XBelongsToField
 from xweb.mvc import XApplication
 
-def register(cls):
+def registerToXWEB(cls):
     
     if issubclass(cls, XController):
         cls_name = cls.__name__
@@ -40,7 +40,6 @@ def register(cls):
                 
         cls._fields = fields
         cls._belongs_to_fields = belongs_to_fields
-        
-        
+        cls.registerToXWEB()
 
     return cls

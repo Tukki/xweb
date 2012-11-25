@@ -39,6 +39,8 @@ class UnitOfWork(object):
         self.entity_list = {}
         self.use_cache = True
         self.use_preload = True
+        self.use_validator = True
+        self.bad_entitys = []
         
     def idgenerator(self):
         
@@ -70,28 +72,44 @@ class UnitOfWork(object):
         news = []
         db_names = set()
         
-        for entity_class_name in self.entity_list:
+        for entity_class_name in self.entity_list.keys():
             entity_dict = self.entity_list.get(entity_class_name)
-            
             for entity_id in entity_dict.keys():
                 entity = entity_dict.get(entity_id)
+                if entity.isDelete():
+                    entity.onDelete()
+                elif entity.isNew():
+                    entity.onNew()
+                elif entity.isDirty():
+                    entity.onUpdate()
+                else:
+                    continue
+                
+        self.bad_entitys = []
+        for entity_class_name in self.entity_list.keys():
+            entity_dict = self.entity_list.get(entity_class_name)
+            for entity_id in entity_dict.keys():
+                entity = entity_dict.get(entity_id)
+                if entity.isDelete():
+                    deletes.append(entity)
+                elif entity.isNew():
+                    news.append(entity)
+                elif entity.isDirty():
+                    updates.append(entity)
+                else:
+                    continue
+                
                 if entity.isLoadedFromCache():
                     raise ModifyBasedCacheError("%s(%s) is loaded from cache, so can't be modified!!"%(
                         entity.__class__.__name__, entity.id))
                 
-                if entity.isDelete():
-                    entity.onDelete()
-                    deletes.append(entity)
-                elif entity.isNew():
-                    entity.onNew()
-                    news.append(entity)
-                elif entity.isDirty():
-                    entity.onUpdate()
-                    updates.append(entity)
-                else:
-                    continue
+                if self.use_validator and not entity.validate():
+                    self.bad_entitys.append(entity)
                     
                 db_names.add(entity._db)
+                
+        if self.use_validator and self.bad_entitys:
+            return False
                 
         for name in db_names:
             connection = self.connection_manager.get(name)
@@ -339,6 +357,7 @@ class UnitOfWork(object):
             if not force:
                 unitofwork = thread.unitofwork
                 unitofwork.entity_list = {}
+                unitofwork.bad_entitys = {}
                 unitofwork.use_cache = True
                 unitofwork.use_preload = False
             else:
