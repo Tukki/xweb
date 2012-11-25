@@ -150,7 +150,7 @@ class UnitOfWork(object):
                     
             return True
         except:
-            logging.exception("error in commit, rollback")
+            logging.exception("[XWEB] COMMIT FAILED, ROLLBACK")
             for name in db_names:
                 connection = self.connection_manager.get(name)
                 if name == connection.name:
