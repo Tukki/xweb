@@ -7,7 +7,7 @@ Created on 2012-6-3
 '''
 
 import threading
-import logging
+from xweb.util import logging
 
 from cache import CacheManager
 from idgenerator import IdGenerator
@@ -268,7 +268,7 @@ class UnitOfWork(object):
             entity = cache.get(key)
             if entity:
                 self.register(entity)
-                logging.debug("load entity %s from cache: %s"%(entity, cache_name))
+                logging.debug("LOAD ENTITY %s FROM CACHE: %s"%(entity, cache_name))
                 return entity
         
         db_conn = cls.dbName(entity_id=entity_id, **kwargs)
@@ -282,7 +282,7 @@ class UnitOfWork(object):
         
         if cache:
             cache.set(key, entity)
-            logging.debug("load entity %s from db: %s"%(entity, db_conn))
+            logging.debug("LOAD ENTITY %s FROM DB: %s"%(entity, db_conn))
         
         return entity
         

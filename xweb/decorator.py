@@ -5,7 +5,7 @@ from xweb.orm import Entity
 from xweb.orm import XField, XBelongsToField
 from xweb.mvc import XApplication
 
-def register(cls):
+def registerToXWEB(cls):
     
     if issubclass(cls, XController):
         cls_name = cls.__name__
