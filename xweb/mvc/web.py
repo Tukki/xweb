@@ -47,7 +47,7 @@ class XRequest(Request):
     
     @cached_property
     def secure_cookies(self):
-        return SecureCookie.load_cookie(self, secret_key=XConfig.get('COOKIE_SECRET_KEY') or 'xweb')
+        return SecureCookie.load_cookie(self, secret_key=XConfig.get('COOKIE_SECRET_KEY') or 'XWEB')
     
 class XResponse(Response):
     pass
