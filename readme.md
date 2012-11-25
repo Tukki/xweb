@@ -47,6 +47,10 @@ order = Order()
 order.user_id = user.id
 order.save()
 
+2. 数据的读写
+
+从cache和从库中取出的数据是不允许写入主库
+
 ###设计思想
 
 本框架有一个ORM框架和一个MVC框架构成，其主要设计思想如下：

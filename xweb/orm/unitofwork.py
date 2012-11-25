@@ -178,43 +178,44 @@ class UnitOfWork(object):
             if not entity:
                 query_cache_ids.append(entity_id)
                 
-        if self.use_cache:
+        if query_cache_ids:
+            if self.use_cache:
                     
-            keys = [self.makeKey(cls, entity_id) for entity_id in query_cache_ids]
-            cache_name = cls._cache_name
-            cache = self.cache_manager.get(cache_name)
-            if not cache:
-                raise ValueError('CACHE DOES NOT EXSITS WHEN USE_CACHE IS TRUE')
+                keys = [self.makeKey(cls, entity_id) for entity_id in query_cache_ids]
+                cache_name = cls._cache_name
+                cache = self.cache_manager.get(cache_name)
+                if not cache:
+                    raise ValueError('CACHE DOES NOT EXSITS WHEN USE_CACHE IS TRUE')
+                
+                entitys = cache.getList(keys)
+                for entity_id, key in zip(query_cache_ids, keys):
+                    cache_dict = entitys.get(key)
+                    if cache_dict:
+                        entity = cls(**cache_dict)
+                        entity._is_new = False
+                        entity._is_delete = False
+                        entity._is_dirty = False
+                        entity._load_from_cache = True
+                        entity._db = 'default'
+                        entity._cache = cache_name
+                        self.register(entity)
+                        logging.debug("[XWEB] LOAD ENTITY %s FROM CACHE: %s"%(entity, cache_name))
+                    else:
+                        query_db_ids.append(entity_id)
+            else:
+                query_db_ids = query_cache_ids
+        
+            entitys = connection.getEntityList(cls, query_db_ids)
+    
+            if not entitys:
+                return []
             
-            entitys = cache.getList(keys)
-            for entity_id, key in zip(query_cache_ids, keys):
-                cache_dict = entitys.get(key)
-                if cache_dict:
-                    entity = cls(**cache_dict)
-                    entity._is_new = False
-                    entity._is_delete = False
-                    entity._is_dirty = False
-                    entity._load_from_cache = True
-                    entity._db = 'default'
-                    entity._cache = cache_name
-                    self.register(entity)
-                    logging.debug("[XWEB] LOAD ENTITY %s FROM CACHE: %s"%(entity, cache_name))
-                else:
-                    query_db_ids.append(entity_id)
-        else:
-            query_db_ids = query_cache_ids
-        
-        entitys = connection.getEntityList(cls, query_db_ids)
-
-        if not entitys:
-            return []
-        
-        first_entity = entitys[0]
-        first_entity.setProps('entity_ids_in_query', entity_ids)
-        for entity in entitys:
-            self.register(entity)
-            entity.setProps('first_entity_in_query', first_entity.id)
-            logging.debug("[XWEB] LOAD ENTITY %s FROM DB: %s"%(entity, db_conn))
+            first_entity = entitys[0]
+            first_entity.setProps('entity_ids_in_query', entity_ids)
+            for entity in entitys:
+                self.register(entity)
+                entity.setProps('first_entity_in_query', first_entity.id)
+                logging.debug("[XWEB] LOAD ENTITY %s FROM DB: %s"%(entity, db_conn))
             
         return [self.getEntityInMemory(cls, entity_id) for entity_id in entity_ids if self.getEntityInMemory(cls, entity_id)]
     
