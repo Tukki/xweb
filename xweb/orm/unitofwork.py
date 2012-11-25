@@ -181,7 +181,7 @@ class UnitOfWork(object):
                     
             keys = [self.makeKey(cls, entity_id) for entity_id in not_found_ids]
             
-            cache_name = cls.cacheName(**kwargs)
+            cache_name = cls._cache_name
             cache = self.cache_manager.get(cache_name)
             if not cache:
                 raise ValueError('CACHE DOES NOT EXSITS WHEN USE_CACHE IS TRUE')
@@ -270,7 +270,7 @@ class UnitOfWork(object):
                 entity = connection.createEntity(cls, row)
                 self.register(entity)
                 key = self.makeKey(cls, entity_id)
-                cache_name = cls.cacheName(key=key, entity_id=entity_id, **kwargs)
+                cache_name = cls._cache_name
                 cache = self.cache_manager.get(cache_name)
                 if cache:
                     cache.set(key, entity.getCacheDict())
@@ -287,7 +287,7 @@ class UnitOfWork(object):
             return entity
         
         key = self.makeKey(cls, entity_id)
-        cache_name = cls.cacheName(entity_id=entity_id, **kwargs)
+        cache_name = cls._cache_name
         cache = self.cache_manager.get(cache_name)
         if self.use_cache:
             

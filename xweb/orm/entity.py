@@ -254,14 +254,6 @@ class Entity(object):
         return 'default'
     
     @classmethod
-    def cacheName(cls, **kwargs):
-        '''
-        cache链接标识
-        @param cls: 实体类型
-        '''
-        return 'default'
-    
-    @classmethod
     def tableName(cls):
         if hasattr(cls, '_table_name') and cls._table_name:
             return cls._table_name
