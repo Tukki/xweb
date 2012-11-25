@@ -66,7 +66,7 @@ class Entity(object):
         
     def remove(self):
         self._is_delete = True
-        self._is_dirty = True
+        self._is_dirty = False
                 
     def load(self, **kwargs):
         cls = self.__class__
