@@ -195,7 +195,7 @@ class Entity(object):
     def onUpdate(self):
         pass
     
-    def validate(self):
+    def doValidate(self):
         '''验证所有的验证器是否通过，将错误保存在__errors
         '''
         is_good = True
@@ -216,6 +216,15 @@ class Entity(object):
 
     def clearErrors(self):
         self.__errors.clear()
+        
+    def getCacheDict(self):
+        
+        cache_dict = {'_db': self._db}
+        
+        for k in self.getFields().keys():
+            cache_dict[k] = getattr(self, k)
+            
+        return cache_dict
         
     #==== class method ====
     @classmethod

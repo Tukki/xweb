@@ -103,7 +103,7 @@ class UnitOfWork(object):
                     raise ModifyBasedCacheError("%s(%s) is loaded from cache, so can't be modified!!"%(
                         entity.__class__.__name__, entity.id))
                 
-                if self.use_validator and not entity.validate():
+                if self.use_validator and not entity.doValidate():
                     self.bad_entitys.append(entity)
                     
                 db_names.add(entity._db)
@@ -144,7 +144,7 @@ class UnitOfWork(object):
                         if not cache:
                             continue
                         cache_key = self.makeKey(entity.__class__, entity.id)
-                        cache.set(cache_key, entity)
+                        cache.set(cache_key, entity.getCacheDict())
                     except:
                         logging.exception("set cache fail")
                     
@@ -187,10 +187,18 @@ class UnitOfWork(object):
                 raise ValueError('CACHE DOES NOT EXSITS WHEN USE_CACHE IS TRUE')
             
             entitys = cache.getList(keys)
+            
             entity_id_and_keys = zip(not_found_ids, keys)
             for entity_id, key in entity_id_and_keys:
-                entity = entitys.get(key)
-                if entity:
+                cache_dict = entitys.get(key)
+                if cache_dict:
+                    entity = cls(**cache_dict)
+                    entity._is_new = False
+                    entity._is_delete = False
+                    entity._is_dirty = False
+                    entity._load_from_cache = True
+                    entity._db = 'default'
+                    entity._cache = cache_name
                     self.register(entity)
                 else:
                     query_db_ids.append(entity_id)
@@ -265,7 +273,7 @@ class UnitOfWork(object):
                 cache_name = cls.cacheName(key=key, entity_id=entity_id, **kwargs)
                 cache = self.cache_manager.get(cache_name)
                 if cache:
-                    cache.set(key, entity)
+                    cache.set(key, entity.getCacheDict())
                 
             results.append(entity)
                 
@@ -283,8 +291,15 @@ class UnitOfWork(object):
         cache = self.cache_manager.get(cache_name)
         if self.use_cache:
             
-            entity = cache.get(key)
-            if entity:
+            cache_dict = cache.get(key)
+            if cache_dict:
+                entity = cls(**cache_dict)
+                entity._is_new = False
+                entity._is_delete = False
+                entity._is_dirty = False
+                entity._load_from_cache = True
+                entity._db = 'default'
+                entity._cache = cache_name
                 self.register(entity)
                 logging.debug("load entity %s from cache: %s"%(entity, cache_name))
                 return entity
@@ -299,7 +314,7 @@ class UnitOfWork(object):
         self.register(entity)
         
         if cache:
-            cache.set(key, entity)
+            cache.set(key, entity.getCacheDict())
             logging.debug("load entity %s from db: %s"%(entity, db_conn))
         
         return entity
