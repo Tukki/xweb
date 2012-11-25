@@ -19,6 +19,7 @@ class Entity(object):
     
     _version = 1
     _primary_key = 'id'
+    _cache_name = 'default'
     disable_preload = False
     
     
