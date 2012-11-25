@@ -247,10 +247,12 @@ class XApplication(object):
                 with BlockProfiler("[XWEB] ACTION EXECTION"):
                     if controller_instance.beforeAction():
                         action_method(**kwargs)
+                        controller_instance.afterAction()
                         if not controller_instance.commit():
-                            raise DBError()
-    
-                    controller_instance.afterAction()
+                            if hasattr(controller_instance, 'handleCommentFail') \
+                                and callable(controller_instance.handleCommentFail):
+                                return controller_instance.handleCommentFail()
+                            return abort(500, 'COMMENT FAILED')
                 
                 context = controller_instance.context
                 content_type = controller_instance.content_type

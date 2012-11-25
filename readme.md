@@ -1,17 +1,26 @@
 #XWEB框架
 作者：lifei   <lifei@7v1.net>
 
-XWEB框架是一款基于python语言的Web开发框架
+XWEB框架是一款基于Python语言的Web开发框架
 
-开发这个框架的目的:
+##Why Python?
 
-1. 现有框架如Django, SQLAlchemy无法解决实际开发过程的一些问题，如短事务，N+1等。
+我曾经使用过Java、PHP、Ruby和Python来开发Web应用，至于为什么使用Python作为XWEB的语言，其实最主要的原因：
+
+1. Ruby不再需要新的WEB开发框架，Rails统治了一切。
+2. PHP没有多线程，对于后台数据处理有些吃力。
+3. Java其实非常好，但不是脚本，仅此而已。
+
+
+##开发这个框架的目的:
+
+1. 现有框架如Django, SQLAlchemy无法解决实际开发过程的一些问题，如全局唯一ID，短事务，N+1等。
 2. 现有框架如Django, SQLAlchemy设计地过于复杂，各种坑爹配置，没有统一的标准，让使用者无从下手或者无法精通。
 
 ##特性
 
 1. 一个轻量级的MVC框架和ORM框架
-2. 采用工作单元来组织数据模型，提供级联查询，延时加载，N+1=>1+1，短事务和Identity Map等特性，能有效防止数据库死锁的发生。
+2. 采用工作单元来组织数据模型，提供级联查询，延时加载，N+1=>1+1，短事务，全局唯一ID和Identity Map等特性，能有效防止数据库死锁的发生。
 3. ConnectionManager管理工作单元内的数据库链接，支持跨库提交，跨库事务等。
 
 ##主要思想
@@ -19,6 +28,24 @@ XWEB框架是一款基于python语言的Web开发框架
 马丁福勒的《企业应用架构模式》一书
 
 ##原则
+
+###主要原则
+
+1. 只有一种配置，就是最佳配置。
+拿ID来说，有些业务实体的ID是没有含义，有时候仅仅是为了让INNODB更有效率，如：
+user_friend_ref表，有三个字段：id，user_id，friend_id，没有人会关心id字段
+对于主键有意义的业务实体，统一使用全局唯一ID，如：
+
+user = User.createByBiz()
+order = Order.createByBiz()
+order.user_id = user.id
+
+如果使用Django的ORM，要写出：
+user = User()
+user.save()
+order = Order()
+order.user_id = user.id
+order.save()
 
 ###设计思想
 

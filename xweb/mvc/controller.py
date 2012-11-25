@@ -72,7 +72,10 @@ class XController(object):
     mimetype = property(getmimetype, setmimetype, "text/html", "text/html")
     
     def commit(self):
-        return not self.read_only and self.unitofwork.commit()
+        if self.read_only:
+            return True
+        
+        return self.unitofwork.commit()
         
     def beforeAction(self):
         return True

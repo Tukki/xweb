@@ -8,6 +8,8 @@ class Entity(object):
     '''
     领域实体基类
     
+    @note: 需要继承的使用保护
+    
     _version: 实体版本
     _primary_key: 主键名称
     
@@ -17,7 +19,37 @@ class Entity(object):
     
     _version = 1
     _primary_key = 'id'
+    _cache_name = 'default'
     disable_preload = False
+    
+    
+    # protected method
+    
+    def _getBelongsToInfo(self, name):
+        '''获取指定属性的belongsto配置信息
+        
+        @param name: 属性/字段名称
+        
+        '''
+        
+        field = self.getBelongsToFieldByName(name)
+        
+        if not field:
+            return None, None, None
+        
+        (foreign_primary_key, foreign_class) = field.key, field.cls
+        
+        if type(foreign_primary_key) == tuple:
+            foreign_value = tuple([ object.__getattribute__(self, key)  for key in foreign_primary_key])
+        else:
+            foreign_value = object.__getattribute__(self, foreign_primary_key)
+            
+        return foreign_primary_key, foreign_class, foreign_value
+    
+    @classmethod
+    def registerToXWEB(cls):
+        '''
+        '''
     
     def __init__(self, **kwargs):
         self._is_new = True
@@ -28,6 +60,7 @@ class Entity(object):
         self._cache = 'default'
         self._dirty_keys = set()
         self._props = {}
+        self.__errors = {}
         self._unitofwork = None
         self.load(**kwargs)
         
@@ -46,34 +79,19 @@ class Entity(object):
             self._unitofwork = UnitOfWork.inst()
         return self._unitofwork
     
+    
     #override
     def __getattribute__(self, *args, **kwargs):
         
         if args and args[0] != 'hasBelongsToField' and self.hasBelongsToField(args[0]):
             return self.__getBelongsToEntity(args[0])
         return object.__getattribute__(self, *args, **kwargs)
-            
-    def getBelongsToInfo(self, name):
-        
-        field = self.getBelongsToFieldByName(name)
-        
-        if not field:
-            return None, None, None
-        
-        (foreign_primary_key, foreign_class) = field.key, field.cls
-        
-        if type(foreign_primary_key) == tuple:
-            foreign_value = tuple([ object.__getattribute__(self, key)  for key in foreign_primary_key])
-        else:
-            foreign_value = object.__getattribute__(self, foreign_primary_key)
-            
-        return foreign_primary_key, foreign_class, foreign_value
     
     def __getBelongsToEntity(self, name):
         '''
         '''
         
-        foreign_key, foreign_class, foreign_id = self.getBelongsToInfo(name)
+        foreign_key, foreign_class, foreign_id = self._getBelongsToInfo(name)
         unitofwork = self.getUnitOfWork()
         
         if not foreign_id:
@@ -109,7 +127,7 @@ class Entity(object):
             if not entity_in_query:
                 continue
             
-            sub_foreign_class, sub_foreign_id = entity_in_query.getBelongsToInfo(name)[-2:]
+            sub_foreign_class, sub_foreign_id = entity_in_query._getBelongsToInfo(name)[-2:]
             
             if not foreign_entity_infos.has_key(sub_foreign_class):
                 foreign_entity_infos[sub_foreign_class] = [sub_foreign_id]
@@ -143,9 +161,6 @@ class Entity(object):
             
     def __str__(self):
         return "%s(%s)"%(self.modelName(), self.getId())
-    
-    def getPrimaryKey(self):
-        return self.getId()
         
     def getId(self):
         primary_key = self.primaryKey()
@@ -180,6 +195,37 @@ class Entity(object):
     
     def onUpdate(self):
         pass
+    
+    def doValidate(self):
+        '''验证所有的验证器是否通过，将错误保存在__errors
+        '''
+        is_good = True
+        self.__errors.clear()
+        for k, v in self.getFields().items():
+            result = v.validate(getattr(self, k))
+            if result is not None:
+                if not self.__errors.has_key(k):
+                    self.__errors[k] = []
+                    
+                self.__errors[k] += result
+                is_good = False
+                    
+        return is_good
+    
+    def getErrors(self):
+        return self.__errors
+
+    def clearErrors(self):
+        self.__errors.clear()
+        
+    def getCacheDict(self):
+        
+        cache_dict = {'_db': self._db}
+        
+        for k in self.getFields().keys():
+            cache_dict[k] = getattr(self, k)
+            
+        return cache_dict
         
     #==== class method ====
     @classmethod
@@ -209,14 +255,6 @@ class Entity(object):
         return 'default'
     
     @classmethod
-    def cacheName(cls, **kwargs):
-        '''
-        cache链接标识
-        @param cls: 实体类型
-        '''
-        return 'default'
-    
-    @classmethod
     def tableName(cls):
         if hasattr(cls, '_table_name') and cls._table_name:
             return cls._table_name
@@ -230,30 +268,6 @@ class Entity(object):
     @classmethod
     def primaryKey(cls):
         return cls._primary_key
-    
-    
-    @classmethod
-    def buildModel(cls):
-        '''
-        @deprecated: 请使用@register
-        '''
-        attrs_names = dir(cls)
-        fields = {}
-        belongs_to_fields = {}
-        for attr_name in attrs_names:
-            attr_value = getattr(cls, attr_name)
-            if isinstance(attr_value, XField):
-                fields[attr_name] = attr_value
-                if not attr_value.column:
-                    attr_value.column = attr_name
-                    
-                attr_value.cls = cls
-                
-            elif isinstance(attr_value, XBelongsToField):
-                belongs_to_fields[attr_name] = attr_value
-                
-        cls._fields = fields
-        cls._belongs_to_fields = belongs_to_fields
     
     @classmethod
     def getFields(cls, is_belongs_to=False):

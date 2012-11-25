@@ -1,4 +1,4 @@
-
+# coding: utf-8
 
 class Criteria:
     pass
@@ -129,27 +129,52 @@ def desc(field):
 def count(data="1"):
     return SelectCriteria('count', data)
 
+
 class XField:
     
     def __init__(self, **kws):
         self.column = kws.get('column')
         self.default_value = kws.get('default')
-        self.can_null = kws.get('null', True)
-        self.cls = None
+        self.validators = kws.get('validators', [])
         
     def _format(self, value):
-        raise RuntimeError("Unsupport")
+        raise NotImplemented()
     
     def format(self, value):
         
         if value is None:
-            if self.default_value is None and not self.can_null:
+            if self.default_value is None:
                 #raise ValueError("%s can not be null", self.column)
                 return None
             else:
                 return self.default_value
         
         return self._format(value)
+    
+    def validate(self, value):
+        '''验证
+        @param value: 需要验证的值
+        
+        @return: None 验证通过 非None 验证未通过
+        '''
+        if not hasattr(self, 'validators'):
+            return None
+        
+        errors = []
+        for validator in self.validators:
+            result = validator(value)
+            if result is not None:
+                errors.append(result)
+        
+        if not errors:
+            return None
+        
+        return errors
+    
+    def addValidator(self, validator):
+        if not hasattr(self, 'validators'):
+            self.validators = []
+        self.validators.append(validator)
     
     def like(self, s):
         return WhereCriteria('like', s, self)
@@ -212,7 +237,6 @@ class XFloatField(XField):
         return float(value)
     
 from datetime import datetime
-import time
 class XDateTimeField(XField):
         
     def _format(self, value):
@@ -229,17 +253,13 @@ class XDateTimeField(XField):
     
 class XIdField(XIntField):
     
-    def __init__(self, **kws):
-        self.column = kws.get('column', 'id')
-        self.can_null = False
-        self.default_value = None
+    def __init__(self):
+        XIntField.__init__(self, column='id', default_value=None)
 
 class XVersionField(XIntField):
     
     def __init__(self, **kws):
-        self.column = kws.get('column', 'version')
-        self.can_null = False
-        self.default_value = 1
+        XIntField.__init__(self, column='version', default_value=1)
     
     
 class XBelongsToField:

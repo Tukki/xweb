@@ -40,7 +40,6 @@ def registerToXWEB(cls):
                 
         cls._fields = fields
         cls._belongs_to_fields = belongs_to_fields
-        
-        
+        cls.registerToXWEB()
 
     return cls
