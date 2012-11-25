@@ -37,7 +37,7 @@ class UnitOfWork(object):
         self.connection_manager = ConnectionManager(XConfig.get('db'))
         self.cache_manager = CacheManager(XConfig.get('cache'))
         self.entity_list = {}
-        self.use_cache = True
+        self.use_cache = False
         self.use_preload = True
         self.use_validator = False
         self.bad_entitys = []
