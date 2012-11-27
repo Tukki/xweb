@@ -62,16 +62,22 @@ class Entity(object):
         self._props = {}
         self.__errors = {}
         self._unitofwork = None
-        self.load(**kwargs)
+        self._init(**kwargs)
         
     def remove(self):
         self._is_delete = True
         self._is_dirty = False
                 
-    def load(self, **kwargs):
+    def _init(self, **kwargs):
         cls = self.__class__
         for k,v in cls.getFields().items():
             self.__dict__[k] = v.format(kwargs.get(k))
+                
+    def updateFields(self, **kwargs):
+        cls = self.__class__
+        for k,v in cls.getFields().items():
+            if kwargs.has_key(k):
+                self.__dict__[k] = v.format(kwargs.get(k))
         
     # protected methods       
     def getUnitOfWork(self):

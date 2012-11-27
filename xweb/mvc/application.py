@@ -177,7 +177,7 @@ class XApplication(object):
 
         if controller and action:
             controller = controller.lower()
-            action     = action.lower()
+            action     = action.lower().replace('_', '')
 
             try:
                 
@@ -192,7 +192,7 @@ class XApplication(object):
                 controller_instance = controller_class(request, self)
                 if not isinstance(controller_instance, XController):
                     return BadRequest('BAD CONTROLLER INSTANCE')
-
+                
                 action_method_name = 'do%s'%action.replace('_', '')
                 if not hasattr(controller_instance, action_method_name):
                     return BadRequest('METHOD NOT FOUND %s' % action_method_name)
@@ -249,10 +249,10 @@ class XApplication(object):
                         action_method(**kwargs)
                         controller_instance.afterAction()
                         if not controller_instance.commit():
-                            if hasattr(controller_instance, 'handleCommentFail') \
-                                and callable(controller_instance.handleCommentFail):
-                                return controller_instance.handleCommentFail()
-                            return abort(500, 'COMMENT FAILED')
+                            if not (hasattr(controller_instance, 'onCommitFail') 
+                                and callable(controller_instance.onCommitFail)
+                                and controller_instance.onCommitFail()):
+                                return abort(500, 'COMMENT FAILED')
                 
                 context = controller_instance.context
                 content_type = controller_instance.content_type

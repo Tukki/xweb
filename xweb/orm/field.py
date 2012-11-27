@@ -243,8 +243,12 @@ class XDateTimeField(XField):
         if type(value) in [int, long, float]:
             return datetime.fromtimestamp(value)
         
-        if type(value) == str:
-            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        if type(value) in [str, unicode]:
+            try:
+                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+            except:
+                return datetime.strptime(value, "%Y-%m-%d")
+                
         
         if type(value) == datetime:
             return value
