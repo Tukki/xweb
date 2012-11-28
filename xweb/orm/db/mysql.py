@@ -397,7 +397,6 @@ class MySQLDBConnection(DBConnection):
         return [self.createEntity(cls, row) for row in rows]
     
     def insert(self, entity):
-        from xweb.orm.entity import Entity
         if not isinstance(entity, Entity):
             return False
         
@@ -426,8 +425,28 @@ class MySQLDBConnection(DBConnection):
         return self.execute(sql, values)
         
     
+    def delete(self, entity):
+        if not isinstance(entity, Entity):
+            return False
+        
+        if entity.isNew():
+            return False
+        
+        if not entity.isDelete():
+            return False
+        
+        cls = type(entity)
+        table_name = cls.tableName()
+        sql = "DELETE FROM `%s`"%table_name
+        
+        primary_key = cls.primaryKey()
+        where_clause, values = generate_where_clause(primary_key, entity.getId())
+        sql += " WHERE %s LIMIT 1" % where_clause
+        
+        return self.execute(sql, values)
+        
+    
     def update(self, entity):
-        from xweb.orm.entity import Entity
         if not isinstance(entity, Entity):
             return False
         
