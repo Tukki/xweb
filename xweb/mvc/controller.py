@@ -6,7 +6,6 @@
 
 from xweb.orm import UnitOfWork
 from xweb.mvc.web import XResponse
-import logging
 
 content_type_map = {
     'json': 'application/json',

@@ -380,9 +380,9 @@ class MySQLDBConnection(DBConnection):
         keys = []
         values = []
         
-        for id in ids:
+        for _id in ids:
             keys.append("%s")
-            values.append(id)
+            values.append(_id)
         
         columns = ["`%s`"%c for c in cls.getColumns()]
         sql = "SELECT %s FROM `%s` WHERE `%s` IN(%s)"%(",".join(columns),
@@ -484,7 +484,8 @@ class MySQLDBConnection(DBConnection):
         return self.execute(sql, values)
     
     def close(self):
-        self._conn.close()
+        if hasattr(self, '_conn'):
+            self._conn.close()
     
     def __str__(self):
         return self.desc

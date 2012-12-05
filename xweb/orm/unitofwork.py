@@ -366,7 +366,15 @@ class UnitOfWork(object):
         return thread.unitofwork
     
     @classmethod
-    def reset(cls, force=False):
+    def Commit(cls):
+        cls.inst().commit()
+    
+    @classmethod
+    def Close(cls):
+        cls.inst().close()
+        
+    @classmethod
+    def Reset(cls, force=False):
         thread = threading.currentThread()
         
         if hasattr(thread, 'unitofwork') and thread.unitofwork:
@@ -378,3 +386,7 @@ class UnitOfWork(object):
                 unitofwork.use_preload = False
             else:
                 del thread.unitofwork
+        
+    @classmethod
+    def reset(cls, force=False):
+        cls.Reset(force)
