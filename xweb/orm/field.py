@@ -53,8 +53,9 @@ class QueryCriteria(AndCriteria):
         self.entity_cls = entity_cls
         self.select = []
         self._join = []
+        self._group_by = []
         self.data = []
-        self.order_by = []
+        self._order_by = []
         self._offset = 0
         self._limit = 0
         self.type = 'and'
@@ -67,6 +68,10 @@ class QueryCriteria(AndCriteria):
         self._join.append(JoinCriteria(entity_cls, args))
         return self
         
+    def groupBy(self, *args):
+        self._group_by = args
+        return self
+        
     def filter(self, *args):
         self.data += args
         return self
@@ -76,7 +81,7 @@ class QueryCriteria(AndCriteria):
             if not isinstance(a, OderByCriteria):
                 a = OderByCriteria(a)
                 
-            self.order_by.append(a)
+            self._order_by.append(a)
             
         return self
     

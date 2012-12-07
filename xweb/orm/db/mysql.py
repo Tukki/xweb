@@ -16,13 +16,17 @@ from connection import DBConnection
 from xweb.util import logging
 import time
 
-from xweb.orm.field import Criteria, QueryCriteria, XField, SelectCriteria
+from xweb.orm.field import Criteria, QueryCriteria, XField, SelectCriteria,\
+    OderByCriteria
 from xweb.orm.entity import Entity
 
 c_types = dict(eq='=', ne='<>', lt='<', le='<=', gt='>',
                ge='>=')
 
 def generate_where_clause(primary_key, entity_id):
+    """
+    USED FOR PRIMARY KEY CASE
+    """
     
     if type(primary_key) == str:
         where_clause = "`%s`=%%s" % primary_key
@@ -35,6 +39,9 @@ def generate_where_clause(primary_key, entity_id):
 
 
 def generate_clause(c, table_map={}):
+    """
+    USED FOR CRITERIA
+    """
     
     if c.type in ['or', 'and']:
         args = []
@@ -54,14 +61,26 @@ def generate_clause(c, table_map={}):
             if sql:
                 sql = "WHERE %s" % sql
             
-            if c.order_by:
-                order_bys = []
-                for cr in c.order_by:
-                    alias_tbl_name = get_table_names(cr, table_map)[-1]
-                    order_bys.append("`%s`.`%s` %s" % (alias_tbl_name, cr.field.column, cr.type))
+            if c._group_by:
+                group_bys = []
+                for cr in c._group_by:
+                    if isinstance(cr, XField):
+                        alias_tbl_name = get_table_names(cr, table_map)[-1]
+                        group_bys.append("`%s`.`%s`" % (alias_tbl_name, cr.column))
                     
                 
-                sql += " order by %s" % (",".join(order_bys))
+                if group_bys:
+                    sql += " group by %s" % (",".join(group_bys))
+            
+            if c._order_by:
+                order_bys = []
+                for cr in c._order_by:
+                    if isinstance(cr, OderByCriteria):
+                        alias_tbl_name = get_table_names(cr, table_map)[-1]
+                        order_bys.append("`%s`.`%s` %s" % (alias_tbl_name, cr.field.column, cr.type))
+                    
+                if order_bys:
+                    sql += " order by %s" % (",".join(order_bys))
                 
             if c._limit:
                 sql += " limit"
