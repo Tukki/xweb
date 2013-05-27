@@ -24,6 +24,7 @@ class XRequest(Request):
     def get(self, key, value=None):
         return self.context.get(key, value)
     
+    #下面的几个方法意义不大阿. 定义上是没有的时候返回默认, 但实际是异常也返回了默认
     def getInt(self, key, value=0):
         
         try:
